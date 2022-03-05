@@ -1,0 +1,42 @@
+[build-system]
+requires = ["flit_core >=3.7,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "borg_drone"
+readme = "README.md"
+requires-python = ">=3.6"
+dependencies = [
+    "PyYAML ~= 6.0",
+]
+authors = []
+classifiers = []
+dynamic = ["version", "description"]
+
+
+[project.scripts]
+borg-drone = "borg_drone.__main__:main"
+
+
+[project.optional-dependencies]
+dev = [
+    "yapf",
+    "mypy",
+]
+test = [
+    "pytest",
+]
+
+[tool.yapf]
+based_on_style = "pep8"
+COLUMN_LIMIT = 100
+SPLIT_BEFORE_FIRST_ARGUMENT = true
+SPLIT_ARGUMENTS_WHEN_COMMA_TERMINATED = true
+ALLOW_SPLIT_BEFORE_DICT_VALUE = false
+
+[tool.yapfignore]
+ignore_patterns = [
+    ".direnv/",
+    "venv/",
+    ".venv/",
+]
