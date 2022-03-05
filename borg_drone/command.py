@@ -1,9 +1,26 @@
 from logging import getLogger
 from secrets import token_hex
+from subprocess import Popen, PIPE, STDOUT, CalledProcessError
 
 from .config import Archive, CONFIG_PATH
 
 logger = getLogger(__name__)
+
+
+def run_cmd(cmd: list[str]):
+    with Popen(cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True) as proc:
+        while True:
+            if proc.stdout is None:
+                break
+            line = proc.stdout.readline()
+            if not line:
+                break
+            logger.info('\t' + line.strip())
+        if proc.stdout is not None:
+            proc.stdout.close()
+        return_code = proc.wait()
+        if return_code:
+            logger.error(CalledProcessError(return_code, cmd))
 
 
 def init_command(config: list[Archive], archive: str):

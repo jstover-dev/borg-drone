@@ -5,7 +5,7 @@ from typing import Callable, Optional
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import borg_commands
+from . import command
 from .config import ConfigValidationError, parse_config, Archive, CONFIG_PATH
 
 
@@ -50,10 +50,10 @@ def main():
     args = parse_args()
 
     if args.command == 'list':
-        borg_commands.list_command(read_config())
+        command.list_command(read_config())
 
     elif args.command == 'init':
-        borg_commands.init_command(read_config(), args.archive)
+        command.init_command(read_config(), args.archive)
 
 
 if __name__ == "__main__":
