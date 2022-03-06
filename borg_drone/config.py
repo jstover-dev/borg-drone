@@ -52,6 +52,7 @@ class LocalRepository(ConfigItem):
     encryption: str
     path: str
     prune: list[dict[str, int]] = field(default_factory=list)
+    compact: bool = False
 
     is_remote = False
     _required_attributes_ = {'name', 'encryption', 'path'}
@@ -71,6 +72,7 @@ class RemoteRepository(ConfigItem):
     port: int = 22
     ssh_key: Optional[str] = None
     prune: list[dict[str, int]] = field(default_factory=list)
+    compact: bool = False
 
     _required_attributes_ = {'name', 'encryption', 'hostname'}
     is_remote = True

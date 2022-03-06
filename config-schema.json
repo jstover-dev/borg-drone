@@ -84,6 +84,9 @@
                     "items": {
                         "$ref": "#/definitions/PruneSettings"
                     }
+                },
+                "compact": {
+                    "type": "boolean"
                 }
             },
             "required": [
@@ -125,6 +128,9 @@
                     "items": {
                         "$ref": "#/definitions/PruneSettings"
                     }
+                },
+                "compact": {
+                    "type": "boolean"
                 }
             },
             "required": [
@@ -161,6 +167,9 @@
                 },
                 "ssh_key": {
                     "type":  "string"
+                },
+                "compact": {
+                    "type": "boolean"
                 }
             }
         },

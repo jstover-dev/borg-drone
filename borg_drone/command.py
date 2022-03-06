@@ -114,16 +114,24 @@ def create_command(targets: list[Archive]):
         except CalledProcessError as ex:
             logger.error(ex)
 
-        prune_argv = ['borg', 'prune', '-v', '--list']
-        prune_argv += chain(*[
-            (f'--{arg}', str(value))
-            for prune_arg in target.repo.prune
-            for arg, value in prune_arg.items()
-        ])
-        try:
-            run_cmd(prune_argv, env=target.environment)
-        except CalledProcessError as ex:
-            logger.error(ex)
+        if target.repo.prune:
+            prune_argv = ['borg', 'prune', '-v', '--list']
+            prune_argv += chain(
+                *[
+                    (f'--{arg}', str(value))
+                    for prune_arg in target.repo.prune
+                    for arg, value in prune_arg.items()
+                ])
+            try:
+                run_cmd(prune_argv, env=target.environment)
+            except CalledProcessError as ex:
+                logger.error(ex)
+
+        if target.repo.compact:
+            try:
+                run_cmd(['borg', 'compact', '--cleanup-commits'])
+            except CalledProcessError as ex:
+                logger.error(ex)
 
 
 def info_command(targets: list[Archive]):
