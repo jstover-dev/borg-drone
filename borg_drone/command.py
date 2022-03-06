@@ -67,22 +67,19 @@ def init_command(targets: list[Archive]):
 def key_export_command(targets: list[Archive]):
     exported = []
     for target in targets:
-        paper_keyfile = target.config_path / 'keyfile.txt'
         try:
             lines = list(execute(['borg', 'key', 'export', '--paper'], env=target.environment))
         except CalledProcessError as ex:
             logger.error(ex)
         else:
-            paper_keyfile.write_text('\n'.join(lines))
-            exported.append(paper_keyfile)
+            target.paper_keyfile.write_text('\n'.join(lines))
 
-        keyfile = target.config_path / 'keyfile.bin'
         try:
-            run_cmd(['borg', 'key', 'export', '::', str(keyfile)], env=target.environment)
+            run_cmd(['borg', 'key', 'export', '::', str(target.keyfile)], env=target.environment)
         except CalledProcessError as ex:
             logger.error(ex)
-        else:
-            exported.append(keyfile)
+
+        exported += [target.keyfile, target.paper_keyfile]
 
     logger.info(f'Encryption keys exported')
     logger.info('MAKE SURE TO BACKUP THESE FILES, AND THEN REMOVE FROM THE LOCAL FILESYSTEM!')
@@ -93,8 +90,7 @@ def key_export_command(targets: list[Archive]):
 
 def key_cleanup_command(targets: list[Archive]):
     for target in targets:
-        for key_name in ('keyfile.txt', 'keyfile.bin'):
-            keyfile = target.config_path / key_name
+        for keyfile in (target.keyfile, target.paper_keyfile):
             if keyfile.exists():
                 keyfile.unlink()
                 logger.info(f'Removed {keyfile}')

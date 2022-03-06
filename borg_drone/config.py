@@ -111,6 +111,14 @@ class Archive(ConfigItem):
     def password_file(self) -> Path:
         return self.config_path / 'passwd'
 
+    @property
+    def keyfile(self) -> Path:
+        return self.config_path / 'keyfile.bin'
+
+    @property
+    def paper_keyfile(self) -> Path:
+        return self.config_path / 'keyfile.txt'
+
     def create_password_file(self):
         passwd = self.config_path / 'passwd'
         if not passwd.exists():
