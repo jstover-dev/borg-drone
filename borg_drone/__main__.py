@@ -33,6 +33,12 @@ def parse_args() -> ProgramArguments:
     init_parser = command_subparser.add_parser('init')
     init_parser.add_argument('archive')
 
+    export_keys_parser = command_subparser.add_parser('export-keys')
+    export_keys_parser.add_argument('archive')
+
+    delete_exports_parser = command_subparser.add_parser('delete-exports')
+    delete_exports_parser.add_argument('archive')
+
     return ProgramArguments(**parser.parse_args().__dict__)
 
 
@@ -46,7 +52,7 @@ def read_config() -> list[Archive]:
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO, format=' %(name)s | %(asctime)s | %(levelname)-8s | %(message)s')
     args = parse_args()
 
     if args.command == 'list':
@@ -54,6 +60,12 @@ def main():
 
     elif args.command == 'init':
         command.init_command(read_config(), args.archive)
+
+    elif args.command == 'export-keys':
+        command.export_keys_command(read_config(), args.archive)
+
+    elif args.command == 'delete-exports':
+        command.delete_exports_command(read_config(), args.archive)
 
 
 if __name__ == "__main__":
