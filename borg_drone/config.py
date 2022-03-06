@@ -3,7 +3,7 @@ from dataclasses import dataclass, fields, field
 from logging import getLogger
 from pathlib import Path
 from secrets import token_hex
-from typing import Optional, ClassVar, Union
+from typing import ClassVar, Optional, Union, Type
 from urllib.parse import urlparse
 
 import yaml
@@ -20,6 +20,8 @@ def xdg_config_path(name: str, create: bool = False) -> Path:
 
 
 CONFIG_PATH = xdg_config_path("borg-drone", create=True)
+
+DEFAULT_CONFIG_FILE = CONFIG_PATH / 'config.yml'
 
 
 class ConfigValidationError(Exception):
@@ -65,12 +67,12 @@ class RemoteRepository(ConfigItem):
     encryption: str
     hostname: str
     path: str = '.'
-    username: str = None
+    username: Optional[str] = None
     port: int = 22
     ssh_key: Optional[str] = None
     prune: list[dict[str, int]] = field(default_factory=list)
 
-    _required_attributes_ = {'name',  'encryption', 'hostname'}
+    _required_attributes_ = {'name', 'encryption', 'hostname'}
     is_remote = True
 
     @property
@@ -91,6 +93,8 @@ class Archive(ConfigItem):
     repo: Union[LocalRepository, RemoteRepository]
     paths: list[str]
     exclude: list[str] = field(default_factory=list)
+    one_file_system: bool = False
+    compression: str = 'lz4'
 
     _required_attributes_ = {'name', 'repo', 'paths'}
 
@@ -117,22 +121,21 @@ class Archive(ConfigItem):
 
     @property
     def environment(self) -> dict:
-        if self.repo.is_remote:
+        if isinstance(self.repo, RemoteRepository):
             url = urlparse(self.repo.url)
-            repo_path = url._replace(path=os.path.join(url.path, self.name)).geturl()
+            borg_repo = url._replace(path=os.path.join(url.path, self.name)).geturl()
+            borg_rsh = 'ssh -o VisualHostKey=no'
+            if self.repo.ssh_key:
+                borg_rsh += f' -i {self.repo.ssh_key}'
         else:
-            repo_path = os.path.join(self.repo.url, self.name)
+            borg_repo = os.path.join(self.repo.url, self.name)
+            borg_rsh = ''
 
-        env = dict(
+        return dict(
             BORG_PASSCOMMAND=f'cat {self.password_file}',
-            BORG_RSH='ssh -o VisualHostKey=no',
-            BORG_REPO=repo_path,
+            BORG_RSH=borg_rsh,
+            BORG_REPO=borg_repo,
         )
-        if self.repo.is_remote and self.repo.ssh_key:
-            env['BORG_RSH'] += f' -i "{self.repo.ssh_key}"'
-        return env
-
-
 
 
 def parse_config(file: Path) -> list[Archive]:
@@ -162,7 +165,6 @@ def parse_config(file: Path) -> list[Archive]:
 
         return reference_errors
 
-
     targets = []
     errors = []
 
@@ -179,6 +181,9 @@ def parse_config(file: Path) -> list[Archive]:
         remotes = []
         for repo_name, repo_config in archive_config['repositories'].items():
             repo_config['name'] = repo_name
+
+            repo_type: Union[Type[RemoteRepository], Type[LocalRepository]]
+
             repo_type = RemoteRepository if repo_config.pop('type') == 'remote' else LocalRepository
             invalid_reason = repo_type.validate(repo_config)
             if invalid_reason:
@@ -199,3 +204,7 @@ def parse_config(file: Path) -> list[Archive]:
         raise ConfigValidationError('> ' + '\n> '.join(map(str, errors)))
 
     return targets
+
+
+def filter_archives(archives: list[Archive], names: list[str]):
+    return [archive for archive in archives if names is None or archive.name in names]

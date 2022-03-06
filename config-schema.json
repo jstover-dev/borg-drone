@@ -161,7 +161,7 @@
                 },
                 "ssh_key": {
                     "type":  "string"
-                },
+                }
             }
         },
 
@@ -206,6 +206,12 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "one_file_system": {
+                    "type": "boolean"
+                },
+                "compression": {
+                    "type": "string"
                 }
             },
             "required": [

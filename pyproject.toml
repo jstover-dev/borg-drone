@@ -21,6 +21,7 @@ borg-drone = "borg_drone.__main__:main"
 [project.optional-dependencies]
 dev = [
     "yapf",
+    "autoflake",
     "mypy",
 ]
 test = [
