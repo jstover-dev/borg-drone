@@ -1,0 +1,217 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "$ref": "#/definitions/root",
+    "definitions": {
+        "root": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "repositories": {
+                    "$ref": "#/definitions/Repositories"
+                },
+                "archives": {
+                    "$ref": "#/definitions/Archives"
+                }
+            },
+            "required": [
+                "archives",
+                "repositories"
+            ],
+            "title": "Welcome9"
+        },
+        "Repositories": {
+            "title": "Repositories",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "local": {
+                    "$ref": "#/definitions/LocalRepositories"
+                },
+                "remote": {
+                    "$ref": "#/definitions/RemoteRepositories"
+                }
+            },
+            "required": [
+                "local",
+                "remote"
+            ]
+        },
+        "PruneSettings": {
+            "title": "Prune Settings",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "keep-hourly": {
+                    "type": "integer"
+                },
+                "keep-daily": {
+                    "type": "integer"
+                },
+                "keep-weekly": {
+                    "type": "integer"
+                },
+                "keep-monthly": {
+                    "type": "integer"
+                },
+                "keep-yearly": {
+                    "type": "integer"
+                }
+            },
+            "required": []
+        },
+
+        "LocalRepositories": {
+            "type": "object",
+            "patternProperties": {
+                "^.*$": {
+                    "$ref": "#/definitions/LocalRepositoryItem"
+                }
+            }
+        },
+         "LocalRepositoryItem": {
+            "title": "Local Repository",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "encryption": {
+                    "type": "string"
+                },
+                "prune": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/PruneSettings"
+                    }
+                }
+            },
+            "required": [
+                "encryption",
+                "path"
+            ]
+        },
+
+        "RemoteRepositories": {
+            "type": "object",
+            "patternProperties": {
+                "^.*$": {
+                    "$ref": "#/definitions/RemoteRepositoryItem"
+                }
+            }
+        },
+        "RemoteRepositoryItem": {
+            "title": "Remote Repository",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "hostname": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "ssh_key": {
+                    "type": "string"
+                },
+                "encryption": {
+                    "type": "string"
+                },
+                "prune": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/PruneSettings"
+                    }
+                }
+            },
+            "required": [
+                "hostname",
+                "encryption"
+            ]
+        },
+
+        "RepositoryOverride": {
+            "title": "Repository settings override",
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "properties": {
+                "path": {
+                    "type":  "string"
+                },
+                "encryption": {
+                    "type":  "string"
+                },
+                "prune": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/PruneSettings"
+                    }
+                },
+                "hostname": {
+                    "type":  "string"
+                },
+                "username": {
+                    "type":  "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "ssh_key": {
+                    "type":  "string"
+                },
+            }
+        },
+
+        "Archives": {
+            "type": "object",
+            "patternProperties": {
+                "^.*$": {
+                    "$ref": "#/definitions/ArchiveItem"
+                }
+            }
+        },
+
+        "ArchiveItem": {
+            "title": "Archive",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "repositories": {
+                    "anyOf": [
+                        {
+                            "type": "array",
+                            "items": {"type": "string"}
+                        },
+                        {
+                            "type": "object",
+                            "patternProperties": {
+                                "^.*$": {
+                                    "$ref": "#/definitions/RepositoryOverride"
+                                }
+                            }
+                        }
+                    ]
+                },
+                "paths": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "exclude": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "repositories",
+                "paths"
+            ]
+        }
+    }
+}
