@@ -56,7 +56,7 @@ def init_command(targets: list[Archive]):
                 matched = [line for line in f if line.split(' ')[0] == target.repo.hostname]
             if not matched:
                 try:
-                    lines = run_cmd(['ssh-keyscan', '-t', 'rsa', target.repo.hostname], stderr=DEVNULL)
+                    lines = run_cmd(['ssh-keyscan', '-H', target.repo.hostname], stderr=DEVNULL)
                 except CalledProcessError as ex:
                     logger.error(ex)
                     continue
