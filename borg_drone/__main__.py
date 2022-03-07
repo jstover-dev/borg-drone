@@ -74,7 +74,8 @@ def read_config(file: Path) -> list[Archive]:
 def main():
     logging.basicConfig(
         level=logging.INFO,
-        format=' %(name)s | %(asctime)s | %(levelname)-8s | %(message)s',
+        format='%(asctime)s │ %(levelname)-7s │ %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
     )
     args = parse_args()
 

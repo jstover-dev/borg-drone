@@ -184,7 +184,7 @@ def parse_config(file: Path) -> list[Archive]:
         repositories = {
             name: dict(repo, type=repo_type)
             for repo_type in ['remote', 'local']
-            for name, repo in config['repositories'][repo_type].items()
+            for name, repo in config['repositories'].get(repo_type, {}).items()
         }
         errors += replace_references(archive_config, 'repositories', repositories)
 
