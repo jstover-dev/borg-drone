@@ -47,7 +47,11 @@ def init_command(targets: list[Archive]):
 
         # Check / add server host key
         if isinstance(target.repo, RemoteRepository):
-            known_hosts = Path.home() / '.ssh' / 'known_hosts'
+            ssh_dir = Path.home() / '.ssh'
+            ssh_dir.mkdir(mode=700, exist_ok=True)
+            known_hosts = ssh_dir / 'known_hosts'
+            if not known_hosts.exists():
+                known_hosts.touch(mode=600, exist_ok=True)
             with known_hosts.open() as f:
                 matched = [line for line in f if line.split(' ')[0] == target.repo.hostname]
             if not matched:
