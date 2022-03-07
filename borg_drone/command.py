@@ -28,11 +28,11 @@ def execute(cmd: list[str], env: dict = None, stderr: int = STDOUT):
             raise CalledProcessError(return_code, cmd)
 
 
-def run_cmd(cmd: list[str], env: dict = None, stderr: int = STDOUT):
+def run_cmd(cmd: list[str], env: dict = None, stderr: int = STDOUT) -> list[str]:
     output = []
     for line in execute(cmd, env, stderr):
         logger.info(line)
-        output += line
+        output.append(line)
     logger.info('')
     return output
 
@@ -52,13 +52,15 @@ def init_command(targets: list[Archive]):
                 matched = [line for line in f if line.split(' ')[0] == target.repo.hostname]
             if not matched:
                 try:
-                    host_key = run_cmd(['ssh-keyscan', '-t', 'rsa', target.repo.hostname], stderr=DEVNULL)
+                    lines = run_cmd(['ssh-keyscan', '-t', 'rsa', target.repo.hostname], stderr=DEVNULL)
                 except CalledProcessError as ex:
                     logger.error(ex)
                     continue
-                if host_key:
+
+                if lines:
+                    host_keys = '\n'.join(lines)
                     with known_hosts.open('a') as f:
-                        f.write(f'\n{host_key}')
+                        f.write(f'\n{host_keys}')
 
         try:
             run_cmd(
