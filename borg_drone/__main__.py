@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-from . import command
+from . import __version__, command
 from .config import Archive, ConfigValidationError, DEFAULT_CONFIG_FILE, filter_archives, parse_config
 
 logger = logging.getLogger(__package__)
@@ -38,9 +38,11 @@ def parse_args() -> ProgramArguments:
         default=DEFAULT_CONFIG_FILE,
         type=Path,
         help="Path to configuration file",
-        metavar="FILE")
-
+        metavar="FILE",
+    )
     command_subparser = parser.add_subparsers(dest='command', required=True)
+
+    command_subparser.add_parser('version')
 
     for cmd in COMMANDS:
         subparser = command_subparser.add_parser(cmd)
@@ -72,6 +74,10 @@ def main() -> None:
         format='%(asctime)s │ %(levelname)-7s │ %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
     args = parse_args()
+
+    if args.command == 'version':
+        print(__version__)
+        exit(0)
 
     targets = read_config(args.config_file)
     logger.info(f'Configuration file: {args.config_file}')
