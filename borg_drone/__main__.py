@@ -14,18 +14,16 @@ logger = logging.getLogger(__package__)
 
 @dataclass
 class ProgramArguments:
-    command: Callable
+    command: Callable[[list[Archive]], None]
     config_file: Path
     archives: list[str] = field(default_factory=list)
 
 
-GLOBAL_COMMANDS = {
-    'list': command.list_command,
-}
-
-ARCHIVE_COMMANDS = {
+COMMANDS: dict[str, Callable[[list[Archive]], None]] = {
+    'targets': command.target_command,
     'init': command.init_command,
     'info': command.info_command,
+    'list': command.list_command,
     'create': command.create_command,
     'key-export': command.key_export_command,
     'key-cleanup': command.key_cleanup_command,
@@ -44,12 +42,9 @@ def parse_args() -> ProgramArguments:
 
     command_subparser = parser.add_subparsers(dest='command', required=True)
 
-    for cmd in GLOBAL_COMMANDS:
-        command_subparser.add_parser(cmd)
-
-    for cmd in ARCHIVE_COMMANDS:
+    for cmd in COMMANDS:
         subparser = command_subparser.add_parser(cmd)
-        subparser.add_argument('archives', nargs='+')
+        subparser.add_argument('archives', nargs='*')
 
     args = parser.parse_args()
     return ProgramArguments(**args.__dict__)
@@ -71,22 +66,24 @@ def read_config(file: Path) -> list[Archive]:
             exit(1)
 
 
-def main():
+def main() -> None:
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s │ %(levelname)-7s │ %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
+        datefmt='%Y-%m-%d %H:%M:%S')
     args = parse_args()
 
-    archives = read_config(args.config_file)
+    targets = read_config(args.config_file)
     logger.info(f'Configuration file: {args.config_file}')
 
-    if args.command in GLOBAL_COMMANDS:
-        GLOBAL_COMMANDS[str(args.command)](archives)
+    if args.archives:
+        targets = filter_archives(targets, names=args.archives)
 
-    elif args.command in ARCHIVE_COMMANDS:
-        ARCHIVE_COMMANDS[str(args.command)](filter_archives(archives, names=args.archives))
+    if not targets:
+        logger.info('No matching targets found in configuration file!')
+        exit(1)
+
+    COMMANDS[str(args.command)](targets)
 
 
 if __name__ == "__main__":

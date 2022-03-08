@@ -42,3 +42,7 @@ ignore_patterns = [
     "venv/",
     ".venv/",
 ]
+
+[tool.mypy]
+strict = true
+

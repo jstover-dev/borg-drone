@@ -3,7 +3,7 @@ from dataclasses import dataclass, fields, field
 from logging import getLogger
 from pathlib import Path
 from secrets import token_hex
-from typing import ClassVar, Optional, Union, Type
+from typing import ClassVar, Optional, Union, Type, Any
 from urllib.parse import urlparse
 
 import yaml
@@ -35,14 +35,14 @@ class ConfigItem:
     _required_attributes_: ClassVar[set[str]] = set()
 
     @classmethod
-    def validate(cls, obj: dict) -> Optional[str]:
+    def validate(cls, obj: dict[str, Any]) -> Optional[str]:
         missing_attrs = cls._required_attributes_ - set(obj)
         if missing_attrs:
             return f'Missing {len(missing_attrs)} attributes: {missing_attrs}'
         return None
 
     @classmethod
-    def from_dict(cls, obj: dict):
+    def from_dict(cls, obj: dict[str, Any]) -> 'ConfigItem':
         return cls(**{k: v for k, v in obj.items() if k in [x.name for x in fields(cls)]})
 
 
@@ -100,6 +100,10 @@ class Archive(ConfigItem):
 
     _required_attributes_ = {'name', 'repo', 'paths'}
 
+    @classmethod
+    def from_dict(cls, obj: dict[str, Any]) -> 'Archive':
+        return cls.from_dict(obj)
+
     @property
     def config_path(self) -> Path:
         name = f'{self.name}_{self.repo.name}'
@@ -119,7 +123,7 @@ class Archive(ConfigItem):
     def paper_keyfile(self) -> Path:
         return self.config_path / 'keyfile.txt'
 
-    def create_password_file(self):
+    def create_password_file(self) -> None:
         passwd = self.config_path / 'passwd'
         if not passwd.exists():
             passwd.write_text(token_hex(32))
@@ -130,29 +134,33 @@ class Archive(ConfigItem):
         return (self.config_path / '.initialised').exists()
 
     @property
-    def environment(self) -> dict:
+    def environment(self) -> dict[str, str]:
+        env = dict(BORG_PASSCOMMAND=f'cat {self.password_file}')
+
         if isinstance(self.repo, RemoteRepository):
             url = urlparse(self.repo.url)
             borg_repo = url._replace(path=os.path.join(url.path, self.name)).geturl()
             borg_rsh = 'ssh -o VisualHostKey=no'
             if self.repo.ssh_key:
                 borg_rsh += f' -i {self.repo.ssh_key}'
+            env.update(BORG_RSH=borg_rsh)
         else:
             borg_repo = os.path.join(self.repo.url, self.name)
-            borg_rsh = ''
 
-        return dict(
-            BORG_PASSCOMMAND=f'cat {self.password_file}',
-            BORG_RSH=borg_rsh,
-            BORG_REPO=borg_repo,
-        )
+        env.update(BORG_REPO=borg_repo)
+
+        return env
 
 
 def parse_config(file: Path) -> list[Archive]:
 
     config = yaml.safe_load(file.read_text())
 
-    def replace_references(data: dict, section: str, references: dict):
+    def replace_references(
+        data: dict[str, Any],
+        section: str,
+        references: dict[str, Any],
+    ) -> list[str]:
         """
         Allow simple "referencing" of other section objects.
         Strings will be replaced with dictionaries containing the referenced object, and
@@ -161,6 +169,7 @@ def parse_config(file: Path) -> list[Archive]:
         `section` must match a top-level config section
         """
         reference_errors = []
+
         if isinstance(data[section], list):
             data[section] = {name: {} for name in data[section]}
 
@@ -175,7 +184,7 @@ def parse_config(file: Path) -> list[Archive]:
 
         return reference_errors
 
-    targets = []
+    targets: list[Archive] = []
     errors = []
 
     for archive_name, archive_config in config['archives'].items():
@@ -216,5 +225,5 @@ def parse_config(file: Path) -> list[Archive]:
     return targets
 
 
-def filter_archives(archives: list[Archive], names: list[str]):
+def filter_archives(archives: list[Archive], names: list[str]) -> list[Archive]:
     return [archive for archive in archives if names is None or archive.name in names]
