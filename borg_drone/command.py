@@ -5,7 +5,7 @@ from logging import getLogger
 from subprocess import Popen, PIPE, STDOUT, DEVNULL, CalledProcessError
 from typing import Generator, Optional
 
-from .config import Archive, RemoteRepository
+from .config import ConfigValidationError, RemoteRepository, read_config, Archive
 
 logger = getLogger(__package__)
 
@@ -41,8 +41,15 @@ def run_cmd(cmd: list[str], env: EnvironmentMap = None, stderr: int = STDOUT) ->
     return output
 
 
-def init_command(targets: list[Archive]) -> None:
-    for target in targets:
+def get_targets(config_file: Path, names: list[str]) -> list[Archive]:
+    targets = [target for target in read_config(config_file) if (not names) or target.name in names]
+    if not targets:
+        raise ConfigValidationError('No matching targets found')
+    return targets
+
+
+def init_command(config_file: Path, target_names: list[str]) -> None:
+    for target in get_targets(config_file, target_names):
         if target.initialised:
             logger.info(f'{target.repo.name}:{target.name}: Already initialised')
             continue
@@ -80,9 +87,9 @@ def init_command(targets: list[Archive]) -> None:
             (target.config_path / '.initialised').touch(exist_ok=True)
 
 
-def key_export_command(targets: list[Archive]) -> None:
+def key_export_command(config_file: Path, target_names: list[str]) -> None:
     exported = []
-    for target in targets:
+    for target in get_targets(config_file, target_names):
         try:
             lines = list(execute(['borg', 'key', 'export', '--paper'], env=target.environment))
         except CalledProcessError as ex:
@@ -104,16 +111,16 @@ def key_export_command(targets: list[Archive]) -> None:
         logger.info(f'\t{f}')
 
 
-def key_cleanup_command(targets: list[Archive]) -> None:
-    for target in targets:
+def key_cleanup_command(config_file: Path, target_names: list[str]) -> None:
+    for target in get_targets(config_file, target_names):
         for keyfile in (target.keyfile, target.paper_keyfile):
             if keyfile.exists():
                 keyfile.unlink()
                 logger.info(f'Removed {keyfile}')
 
 
-def create_command(targets: list[Archive]) -> None:
-    for target in targets:
+def create_command(config_file: Path, target_names: list[str]) -> None:
+    for target in get_targets(config_file, target_names):
         argv = ['borg', 'create', '--stats', '--compression', target.compression]
         if target.one_file_system:
             argv.append('--one-file-system')
@@ -146,22 +153,23 @@ def create_command(targets: list[Archive]) -> None:
                 logger.error(ex)
 
 
-def info_command(targets: list[Archive]) -> None:
-    for target in targets:
+def info_command(config_file: Path, target_names: list[str]) -> None:
+    for target in get_targets(config_file, target_names):
+
         try:
             run_cmd(['borg', 'info'], env=target.environment)
         except CalledProcessError as ex:
             logger.error(ex)
 
 
-def list_command(targets: list[Archive]) -> None:
-    for target in targets:
+def list_command(config_file: Path, target_names: list[str]) -> None:
+    for target in get_targets(config_file, target_names):
         try:
             run_cmd(['borg', 'list'], env=target.environment)
         except CalledProcessError as ex:
             logger.error(ex)
 
 
-def target_command(targets: list[Archive]) -> None:
-    for target in targets:
+def targets_command(config_file: Path, target_names: list[str]) -> None:
+    for target in get_targets(config_file, target_names):
         logger.info(target)

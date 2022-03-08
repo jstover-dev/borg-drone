@@ -3,7 +3,7 @@ from dataclasses import dataclass, fields, field
 from logging import getLogger
 from pathlib import Path
 from secrets import token_hex
-from typing import ClassVar, Optional, Union, Type, Any
+from typing import ClassVar, Optional, Union, Type, Any, TypeVar
 from urllib.parse import urlparse
 
 import yaml
@@ -28,6 +28,13 @@ class ConfigValidationError(Exception):
     """Named exception raised when configuration file fails validation"""
 
 
+T = TypeVar('T')
+
+
+def object_from_dict(cls: Type[T], data: dict[str, Any]) -> T:
+    return cls(**{k: v for k, v in data.items() if k in [x.name for x in fields(cls)]})
+
+
 @dataclass
 class ConfigItem:
     name: str
@@ -42,7 +49,7 @@ class ConfigItem:
         return None
 
     @classmethod
-    def from_dict(cls, obj: dict[str, Any]) -> 'ConfigItem':
+    def from_dict(cls: Type[T], obj: dict[str, Any]) -> T:
         return cls(**{k: v for k, v in obj.items() if k in [x.name for x in fields(cls)]})
 
 
@@ -100,9 +107,9 @@ class Archive(ConfigItem):
 
     _required_attributes_ = {'name', 'repo', 'paths'}
 
-    @classmethod
-    def from_dict(cls, obj: dict[str, Any]) -> 'Archive':
-        return cls.from_dict(obj)
+    #@classmethod
+    #def from_dict(cls, obj: dict[str, Any]) -> 'Archive':
+    #    return super().from_dict(obj)
 
     @property
     def config_path(self) -> Path:
@@ -197,7 +204,7 @@ def parse_config(file: Path) -> list[Archive]:
         }
         errors += replace_references(archive_config, 'repositories', repositories)
 
-        remotes = []
+        remotes: list[Union[LocalRepository, RemoteRepository]] = []
         for repo_name, repo_config in archive_config['repositories'].items():
             repo_config['name'] = repo_name
 
@@ -225,5 +232,13 @@ def parse_config(file: Path) -> list[Archive]:
     return targets
 
 
-def filter_archives(archives: list[Archive], names: list[str]) -> list[Archive]:
-    return [archive for archive in archives if names is None or archive.name in names]
+def read_config(file: Path) -> list[Archive]:
+    try:
+        return parse_config(file)
+    except FileNotFoundError:
+        if file == DEFAULT_CONFIG_FILE:
+            with file.open('w') as f:
+                yaml.dump({'repositories': {}, 'archives': {}}, f)
+            return read_config(file)
+        else:
+            raise ConfigValidationError(f'Unable to read configuration file: {file}')

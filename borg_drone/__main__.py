@@ -7,30 +7,33 @@ from pathlib import Path
 import yaml
 
 from . import __version__, command
-from .config import Archive, ConfigValidationError, DEFAULT_CONFIG_FILE, filter_archives, parse_config
+from .config import Archive, ConfigValidationError, DEFAULT_CONFIG_FILE, parse_config
 
 logger = logging.getLogger(__package__)
+
+CommandFunction = Callable[[Path, list[str]], None]
 
 
 @dataclass
 class ProgramArguments:
-    command: Callable[[list[Archive]], None]
+    command: CommandFunction
     config_file: Path
     archives: list[str] = field(default_factory=list)
 
 
-COMMANDS: dict[str, Callable[[list[Archive]], None]] = {
-    'targets': command.target_command,
-    'init': command.init_command,
-    'info': command.info_command,
-    'list': command.list_command,
-    'create': command.create_command,
-    'key-export': command.key_export_command,
-    'key-cleanup': command.key_cleanup_command,
-}
-
-
 def parse_args() -> ProgramArguments:
+
+    command_functions: dict[str, CommandFunction] = {
+        'version': lambda *_: print(__version__),
+        'targets': command.targets_command,
+        'init': command.init_command,
+        'info': command.info_command,
+        'list': command.list_command,
+        'create': command.create_command,
+        'key-export': command.key_export_command,
+        'key-cleanup': command.key_cleanup_command,
+    }
+
     parser = ArgumentParser()
     parser.add_argument(
         "--config-file",
@@ -40,15 +43,15 @@ def parse_args() -> ProgramArguments:
         help="Path to configuration file",
         metavar="FILE",
     )
+
     command_subparser = parser.add_subparsers(dest='command', required=True)
-
-    command_subparser.add_parser('version')
-
-    for cmd in COMMANDS:
+    for cmd in command_functions:
         subparser = command_subparser.add_parser(cmd)
         subparser.add_argument('archives', nargs='*')
 
     args = parser.parse_args()
+    args.command = command_functions[args.command]
+
     return ProgramArguments(**args.__dict__)
 
 
@@ -75,21 +78,21 @@ def main() -> None:
         datefmt='%Y-%m-%d %H:%M:%S')
     args = parse_args()
 
-    if args.command == 'version':
-        print(__version__)
-        exit(0)
+    #targets = read_config(args.config_file)
+    #logger.info(f'Configuration file: {args.config_file}')
 
-    targets = read_config(args.config_file)
-    logger.info(f'Configuration file: {args.config_file}')
+    #if args.archives:
+    #    targets = filter_archives(targets, names=args.archives)
 
-    if args.archives:
-        targets = filter_archives(targets, names=args.archives)
+    #if not targets:
+    #    logger.info('No matching targets found in configuration file!')
+    #    exit(1)
 
-    if not targets:
-        logger.info('No matching targets found in configuration file!')
+    try:
+        args.command(args.config_file, args.archives)
+    except ConfigValidationError as ex:
+        logger.error(f'Error while reading configuration file: {ex}')
         exit(1)
-
-    COMMANDS[str(args.command)](targets)
 
 
 if __name__ == "__main__":
