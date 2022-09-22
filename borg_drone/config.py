@@ -5,6 +5,7 @@ from pathlib import Path
 from secrets import token_hex
 from typing import ClassVar, Optional, Union, Type, Any, TypeVar
 from urllib.parse import urlparse
+from collections.abc import Iterable
 
 import yaml
 
@@ -25,7 +26,14 @@ DEFAULT_CONFIG_FILE = CONFIG_PATH / 'config.yml'
 
 
 class ConfigValidationError(Exception):
-    """Named exception raised when configuration file fails validation"""
+    """Exception raised when configuration file fails validation"""
+    def __init__(self, errors: Iterable[str]):
+        super().__init__()
+        self.errors = errors
+
+    def log_errors(self):
+        for error in self.errors:
+            logger.error(f'> {error}')
 
 
 T = TypeVar('T')
@@ -68,6 +76,9 @@ class LocalRepository(ConfigItem):
     def url(self) -> str:
         return self.path
 
+    def __str__(self):
+        return f'local:{self.path}'
+
 
 @dataclass
 class RemoteRepository(ConfigItem):
@@ -94,6 +105,9 @@ class RemoteRepository(ConfigItem):
             if not self.path.startswith('.'):
                 path = '/.' + path
         return f'ssh://{username}{self.hostname}:{self.port}{path}'
+
+    def __str__(self):
+        return f'remote:{self.username}@{self.hostname}/{self.path}'
 
 
 @dataclass
@@ -159,9 +173,8 @@ class Archive(ConfigItem):
         return env
 
 
+# TODO: Clean this up
 def parse_config(file: Path) -> list[Archive]:
-
-    config = yaml.safe_load(file.read_text())
 
     def replace_references(
         data: dict[str, Any],
@@ -192,18 +205,29 @@ def parse_config(file: Path) -> list[Archive]:
         return reference_errors
 
     targets: list[Archive] = []
-    errors = []
+    errors = set()
+
+    config = yaml.safe_load(file.read_text())
+
+    # Check for duplicated repository names in remote/local section
+    repo_names = []
+    for repo_type in ('remote', 'local'):
+        repo_names += list(config['repositories'].get(repo_type, {}))
+    repository_duplicates = set(item for item in repo_names if repo_names.count(item) > 1)
+    if repository_duplicates:
+        errors |= set(f'Duplicate repository name: {name}' for name in repository_duplicates)
 
     for archive_name, archive_config in config['archives'].items():
 
-        # backup.repositories can refer to either local or remote repositories
+        # config.repositories can refer to either local or remote repositories
         repositories = {
             name: dict(repo, type=repo_type)
             for repo_type in ['remote', 'local']
             for name, repo in config['repositories'].get(repo_type, {}).items()
         }
-        errors += replace_references(archive_config, 'repositories', repositories)
+        errors |= set(replace_references(archive_config, 'repositories', repositories))
 
+        # Read remotes
         remotes: list[Union[LocalRepository, RemoteRepository]] = []
         for repo_name, repo_config in archive_config['repositories'].items():
             repo_config['name'] = repo_name
@@ -213,21 +237,22 @@ def parse_config(file: Path) -> list[Archive]:
             repo_type = RemoteRepository if repo_config.pop('type') == 'remote' else LocalRepository
             invalid_reason = repo_type.validate(repo_config)
             if invalid_reason:
-                errors.append(f'Repository "{repo_name}" is invalid: {invalid_reason}')
+                errors.add(f'Repository "{repo_name}" is invalid: {invalid_reason}')
             else:
                 remotes.append(repo_type.from_dict(repo_config))
 
+        # Validate archives
         for remote in remotes:
             archive_params = {'name': archive_name, 'repo': remote, **archive_config}
             invalid_reason = Archive.validate(archive_params)
             if invalid_reason:
-                errors.append(f'Archive "{archive_name}" is invalid: {invalid_reason}')
+                errors.add(f'Archive "{archive_name}" is invalid: {invalid_reason}')
                 break
             else:
                 targets.append(Archive.from_dict(archive_params))
 
     if errors:
-        raise ConfigValidationError('> ' + '\n> '.join(map(str, errors)))
+        raise ConfigValidationError(errors)
 
     return targets
 
@@ -241,4 +266,4 @@ def read_config(file: Path) -> list[Archive]:
                 yaml.dump({'repositories': {}, 'archives': {}}, f)
             return read_config(file)
         else:
-            raise ConfigValidationError(f'Unable to read configuration file: {file}')
+            raise ConfigValidationError([f'No such file: {file}'])
