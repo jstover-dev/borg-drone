@@ -1,5 +1,5 @@
 import os
-from itertools import chain
+from itertools import chain, groupby
 from pathlib import Path
 from logging import getLogger
 from subprocess import Popen, PIPE, STDOUT, DEVNULL, CalledProcessError
@@ -44,7 +44,7 @@ def run_cmd(cmd: list[str], env: EnvironmentMap = None, stderr: int = STDOUT) ->
 def get_targets(config_file: Path, names: list[str]) -> list[Archive]:
     targets = [target for target in read_config(config_file) if (not names) or target.name in names]
     if not targets:
-        raise ConfigValidationError('No matching targets found')
+        raise ConfigValidationError([f'No targets found matching names: {names}'])
     return targets
 
 
@@ -171,5 +171,12 @@ def list_command(config_file: Path, target_names: list[str]) -> None:
 
 
 def targets_command(config_file: Path, target_names: list[str]) -> None:
-    for target in get_targets(config_file, target_names):
-        logger.info(target)
+    for name, targets in groupby(get_targets(config_file, target_names), key=lambda x: x.name):
+        targets = list(targets)
+        if not targets:
+            continue
+        print(f'[{name}]')
+        print(f'\tpaths   = {", ".join(targets[0].paths)}')
+        print(f'\texclude = {targets[0].exclude}')
+        print(f'\trepos  = {", ".join([str(target.repo) for target in targets])}')
+
