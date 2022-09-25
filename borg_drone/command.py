@@ -115,7 +115,7 @@ def create_command(config_file: Path, target_names: list[str]) -> None:
 
         if target.repo.compact:
             try:
-                run_cmd(['borg', 'compact', '--cleanup-commits'])
+                run_cmd(['borg', 'compact', '--cleanup-commits', '::'], env=target.environment)
             except CalledProcessError as ex:
                 logger.error(ex)
 
@@ -136,7 +136,7 @@ def list_command(config_file: Path, target_names: list[str]) -> None:
             logger.error(ex)
 
 
-def targets_command(config_file: Path) -> None:
+def targets_command(config_file: Path, json: bool = False) -> None:
     for name, targets in groupby(get_targets(config_file), key=lambda x: x.name):
         targets = list(targets)
         if not targets:
