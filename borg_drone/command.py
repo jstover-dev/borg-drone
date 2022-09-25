@@ -102,9 +102,8 @@ def create_command(config_file: Path, target_names: list[str]) -> None:
                 logger.error(ex)
 
 
-def info_command(config_file: Path, target_names: list[str]) -> None:
-    for target in get_targets(config_file, target_names):
-
+def info_command(config_file: Path, archives: list[str]) -> None:
+    for target in get_targets(config_file, archives):
         try:
             run_cmd(['borg', 'info'], env=target.environment)
         except CalledProcessError as ex:
@@ -119,8 +118,8 @@ def list_command(config_file: Path, target_names: list[str]) -> None:
             logger.error(ex)
 
 
-def targets_command(config_file: Path, target_names: list[str]) -> None:
-    for name, targets in groupby(get_targets(config_file, target_names), key=lambda x: x.name):
+def targets_command(config_file: Path) -> None:
+    for name, targets in groupby(get_targets(config_file), key=lambda x: x.name):
         targets = list(targets)
         if not targets:
             continue

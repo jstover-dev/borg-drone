@@ -14,7 +14,7 @@ StringGenerator = Generator[str, None, None]
 def execute(cmd: list[str], env: EnvironmentMap = None, stderr: int = STDOUT) -> StringGenerator:
     logger.info('> ' + ' '.join(cmd))
     for var, value in (env or {}).items():
-        logger.info(f'> ENV: {var} = {value}')
+        logger.info(f'>  ENV: {var} = {value}')
     with Popen(cmd, stdout=PIPE, stderr=stderr, universal_newlines=True, env=env) as proc:
         while True:
             if proc.stdout is None:
@@ -39,11 +39,13 @@ def run_cmd(cmd: list[str], env: EnvironmentMap = None, stderr: int = STDOUT) ->
     return output
 
 
-def get_targets(config_file: Path, names: list[str]) -> list[Archive]:
+def get_targets(config_file: Path, names: list[str] = None) -> list[Archive]:
     targets = [target for target in read_config(config_file) if (not names) or target.name in names]
     if not targets:
         raise ConfigValidationError([f'No targets found matching names: {names}'])
     return targets
+
+
 
 
 def update_ssh_known_hosts(hostname: str):

@@ -73,7 +73,16 @@
                     "type": "string"
                 },
                 "encryption": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "none",
+                        "authenticated",
+                        "authenticated-blake2",
+                        "repokey",
+                        "repokey-blake2",
+                        "keyfile",
+                        "keyfile-blake2"
+                    ]
                 },
                 "prune": {
                     "type": "array",
@@ -117,7 +126,16 @@
                     "type": "string"
                 },
                 "encryption": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "none",
+                        "authenticated",
+                        "authenticated-blake2",
+                        "repokey",
+                        "repokey-blake2",
+                        "keyfile",
+                        "keyfile-blake2"
+                    ]
                 },
                 "prune": {
                     "type": "array",

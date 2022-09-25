@@ -1,7 +1,7 @@
 import logging
 from argparse import ArgumentParser
-from typing import Callable
-from dataclasses import dataclass, field
+from typing import Callable, Any
+from dataclasses import dataclass
 from pathlib import Path
 
 from . import __version__, command
@@ -14,23 +14,29 @@ CommandFunction = Callable[[Path, list[str]], None]
 
 @dataclass
 class ProgramArguments:
-    command: CommandFunction
+    command: str
     config_file: Path
-    archives: list[str] = field(default_factory=list)
+    target: tuple[str, str] = None
+    targets: list[tuple[str, str]] = None
+    archives: list[str] = None
+    keyfile: Path = None
+    password_file: Path = None
 
 
-def parse_args() -> ProgramArguments:
+@dataclass
+class Command:
+    name: str
 
-    command_functions: dict[str, CommandFunction] = {
-        'version': lambda *_: print(__version__),
-        'targets': command.targets_command,
-        'init': command.init_command,
-        'info': command.info_command,
-        'list': command.list_command,
-        'create': command.create_command,
-        'key-export': command.key_export_command,
-        'key-cleanup': command.key_cleanup_command,
-    }
+
+# pseudo-type for a string with format archive:repo
+def archive_target(text: str) -> tuple[str, str]:
+    target = tuple(text.split(':', 1))
+    if len(target) != 2:
+        raise ValueError(f'String "{text}" does not match format "REPO:ARCHIVE"')
+    return target[0], target[1]
+
+
+def parse_args() -> Callable:
 
     parser = ArgumentParser()
     parser.add_argument(
@@ -43,14 +49,48 @@ def parse_args() -> ProgramArguments:
     )
 
     command_subparser = parser.add_subparsers(dest='command', required=True)
-    for cmd in command_functions:
-        subparser = command_subparser.add_parser(cmd)
-        subparser.add_argument('archives', nargs='*')
+    command_subparser.add_parser('version')
+    command_subparser.add_parser('targets')
 
-    args = parser.parse_args()
-    args.command = command_functions[args.command]
+    init_subparser = command_subparser.add_parser('init')
+    init_subparser.add_argument('archives', nargs='*')
 
-    return ProgramArguments(**args.__dict__)
+    info_subparser = command_subparser.add_parser('info')
+    info_subparser.add_argument('archives', nargs='*')
+
+    list_subparser = command_subparser.add_parser('list')
+    list_subparser.add_argument('archives', nargs='*')
+
+    create_subparser = command_subparser.add_parser('create')
+    create_subparser.add_argument('archives', nargs='*')
+
+    key_export_subparser = command_subparser.add_parser('key-export')
+    key_export_subparser.add_argument('archives', nargs='*')
+
+    key_cleanup_subparser = command_subparser.add_parser('key-cleanup')
+    key_cleanup_subparser.add_argument('archives', nargs='*')
+
+    key_import_subparser = command_subparser.add_parser('key-import')
+    key_import_subparser.add_argument('target', type=archive_target)
+    key_import_subparser.add_argument('--keyfile', type=Path, required=True)
+    key_import_subparser.add_argument('--password-file', type=Path, default=None)
+
+    command_functions: dict[str, Callable[[ProgramArguments], Any]] = {
+        'version': lambda args: print(__version__),
+        'targets': lambda args: command.targets_command(args.config_file),
+        'init': lambda args: command.init_command(args.config_file, args.targets),
+        'info': lambda args: command.info_command(args.config_file, args.targets),
+        'list': lambda args: command.list_command(args.config_file, args.archives),
+        'create': lambda args: command.create_command(args.config_file, args.archives),
+        'key-export': lambda args: command.key_export_command(args.config_file, args.archives),
+        'key-cleanup': lambda args: command.key_cleanup_command(args.config_file, args.archives),
+        'key-import': lambda args: command.key_import_command(args.config_file, args.target, args.keyfile, args.password_file)
+    }
+
+    program_args = ProgramArguments(**parser.parse_args().__dict__)
+    print(program_args)
+
+    return lambda: command_functions[program_args.command](program_args)
 
 
 def main() -> None:
@@ -58,10 +98,10 @@ def main() -> None:
         level=logging.INFO,
         format='%(asctime)s │ %(levelname)-7s │ %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
-    args = parse_args()
+    run_command = parse_args()
 
     try:
-        args.command(args.config_file, args.archives)
+        run_command()
     except ConfigValidationError as ex:
         logger.error(f'Error(s) encountered while reading configuration file: {ex}')
         ex.log_errors()
