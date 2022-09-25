@@ -88,7 +88,6 @@ def parse_args() -> Callable:
     }
 
     program_args = ProgramArguments(**parser.parse_args().__dict__)
-    print(program_args)
 
     return lambda: command_functions[program_args.command](program_args)
 
