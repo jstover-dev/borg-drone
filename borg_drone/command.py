@@ -57,7 +57,7 @@ def key_export_command(config_file: Path, target_names: list[str]) -> None:
 
     logger.info(f'Encryption keys exported')
     logger.info('MAKE SURE TO BACKUP THESE FILES, AND THEN REMOVE FROM THE LOCAL FILESYSTEM!')
-    logger.info(f'You can do this by running: `borg-drone delete-exports`')
+    logger.info(f'You can do this by running: `borg-drone key-cleanup`')
     for f in exported:
         logger.info(f'\t{f}')
 
