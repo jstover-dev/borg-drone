@@ -121,10 +121,6 @@ class Archive(ConfigItem):
 
     _required_attributes_ = {'name', 'repo', 'paths'}
 
-    #@classmethod
-    #def from_dict(cls, obj: dict[str, Any]) -> 'Archive':
-    #    return super().from_dict(obj)
-
     @property
     def config_path(self) -> Path:
         name = f'{self.name}_{self.repo.name}'
