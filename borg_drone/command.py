@@ -1,7 +1,9 @@
 import os
+from getpass import getpass
 from itertools import chain, groupby
 from pathlib import Path
 from logging import getLogger
+from shutil import copy
 from subprocess import CalledProcessError
 
 from .config import RemoteRepository
@@ -58,6 +60,22 @@ def key_export_command(config_file: Path, target_names: list[str]) -> None:
     logger.info(f'You can do this by running: `borg-drone delete-exports`')
     for f in exported:
         logger.info(f'\t{f}')
+
+
+def key_import_command(config_file: Path, target: tuple[str, str], keyfile: Path, password_file: Path):
+    if password_file is None:
+        password = getpass('Enter password for existing archive: ')
+    else:
+        password = password_file.read_text()
+    repo, archive = target
+    for target in get_targets(config_file, [archive]):
+        if target.repo.name == repo:
+            target.create_password_file(contents=password)
+            try:
+                run_cmd(['borg', 'key', 'import', '::', str(keyfile)], env=target.environment)
+            except CalledProcessError as ex:
+                logger.error(ex)
+            logger.info(f'Imported keys for {repo}:{archive} successfully')
 
 
 def key_cleanup_command(config_file: Path, target_names: list[str]) -> None:

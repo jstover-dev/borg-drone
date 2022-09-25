@@ -144,10 +144,10 @@ class Archive(ConfigItem):
     def paper_keyfile(self) -> Path:
         return self.config_path / 'keyfile.txt'
 
-    def create_password_file(self) -> None:
+    def create_password_file(self, contents: str = None) -> None:
         passwd = self.config_path / 'passwd'
         if not passwd.exists():
-            passwd.write_text(token_hex(32))
+            passwd.write_text(contents or token_hex(32))
             logger.info(f'Created passphrase file: {passwd}')
 
     @property
@@ -156,7 +156,10 @@ class Archive(ConfigItem):
 
     @property
     def environment(self) -> dict[str, str]:
-        env = dict(BORG_PASSCOMMAND=f'cat {self.password_file}')
+        env = dict(
+            BORG_PASSCOMMAND=f'cat {self.password_file}',
+            BORG_RELOCATED_REPO_ACCESS_IS_OK='yes',
+        )
 
         if isinstance(self.repo, RemoteRepository):
             url = urlparse(self.repo.url)
