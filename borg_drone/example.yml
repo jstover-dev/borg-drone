@@ -1,8 +1,20 @@
+# borg-drone configuration consists of two main sections: 'repositories' and 'archives'
+#
+# Repositories are local or remote (SSH) targets where the borg repository will be created.
+# Many repositories can be defined in this section, but only those referenced by an archive will be used.
+#
+# Archives are local to the machine running borg-drone and define the folders to be backed up and excluded.
+# All archives defined here will be used by default.
+
+
 repositories:
 
+  # Local repository definitions
   local:
+
+    # Local backup location A
     local-example:
-      path: /backups/example
+      path: /backups/example-a
       encryption: keyfile-blake2
       prune:
         - keep-daily: 7
@@ -11,7 +23,17 @@ repositories:
         - keep-yearly: 2
       compact: false
 
+    # Local backup location B
+    local-example-2:
+      path: /backups/example-b
+      encryption: keyfile
+      compact: true
+
+
+  # Remote repository definitions
   remote:
+
+    # Remote borg repository located at backups.example.com
     remote-example:
       hostname: backups.example.com
       username: backup
@@ -26,19 +48,29 @@ repositories:
       compact: false
 
 
+
 archives:
 
+  # Backup definition for this machine
   this-machine:
+
+    # Use multiple repositories as defined above
     repositories:
-      - local-example
+      - local-example-a
       - remote-example
+
+    # Include the following directories
     paths:
       - ~/.ssh
       - ~/.gnupg
       - ~/Desktop
       - ~/Documents
       - ~/Pictures
+
+    # Exclude the following patterns (these are passed directly to borg)
     exclude:
       - "**/venv"
       - "**/node_modules"
+
+    # Enable the --one-file-system borg options
     one_file_system: true
