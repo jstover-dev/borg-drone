@@ -13,6 +13,14 @@ from .types import OutputFormat, TargetTuple
 logger = getLogger(__package__)
 
 
+def generate_config_command(config_file: Path) -> None:
+    if config_file.exists():
+        raise RuntimeError(f'Configuration file already exists: {config_file}')
+    config_file.write_text((Path(__file__).parent / 'example.yml').read_text())
+    logger.info(f'Configuration file created: {config_file}')
+    logger.info(f'Edit this file to configure the application')
+
+
 def init_command(config_file: Path, target_names: list[str]) -> None:
     for target in get_targets(config_file, target_names):
         if target.initialised:

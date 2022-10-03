@@ -84,7 +84,7 @@ def parse_args() -> Callable:
 
     command_functions: dict[str, Callable[[ProgramArguments], Any]] = {
         'version': lambda args: print(__version__),
-        'generate-config': lambda args: command.generate_example_config(
+        'generate-config': lambda args: command.generate_config_command(
             args.config_file,
         ),
         'targets': lambda args: command.targets_command(
