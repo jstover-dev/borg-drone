@@ -6,7 +6,7 @@ from pathlib import Path
 
 from . import __version__, command
 from .config import ConfigValidationError, DEFAULT_CONFIG_FILE
-from .types import OutputFormat
+from .types import OutputFormat, TargetTuple
 
 logger = logging.getLogger(__package__)
 
@@ -31,7 +31,7 @@ class Command:
 
 
 # pseudo-type for a string with format archive:repo
-def archive_target(text: str) -> tuple[str, str]:
+def archive_target(text: str) -> TargetTuple:
     target = tuple(text.split(':', 1))
     if len(target) != 2:
         raise ValueError(f'String "{text}" does not match format "REPO:ARCHIVE"')
