@@ -27,6 +27,7 @@ DEFAULT_CONFIG_FILE = CONFIG_PATH / 'config.yml'
 
 class ConfigValidationError(Exception):
     """Exception raised when configuration file fails validation"""
+
     def __init__(self, errors: Iterable[str]):
         super().__init__()
         self.errors = errors
@@ -172,10 +173,7 @@ class Archive(ConfigItem):
         return env
 
     def to_dict(self) -> dict:
-        return {
-            k: v.__dict__ if isinstance(v, ConfigItem) else v
-            for k, v in self.__dict__.items()
-        }
+        return {k: v.__dict__ if isinstance(v, ConfigItem) else v for k, v in self.__dict__.items()}
 
 
 # TODO: Clean this up

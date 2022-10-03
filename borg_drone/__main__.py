@@ -6,6 +6,7 @@ from pathlib import Path
 
 from . import __version__, command
 from .config import ConfigValidationError, DEFAULT_CONFIG_FILE
+from .types import OutputFormat
 
 logger = logging.getLogger(__package__)
 
@@ -52,8 +53,11 @@ def parse_args() -> Callable:
     command_subparser = parser.add_subparsers(dest='command', required=True)
     command_subparser.add_parser('version')
 
+    generate_config_subparser = command_subparser.add_parser('generate-config')
+    generate_config_subparser.add_argument('--force', '-f', action='store_true', default=False)
+
     targets_subparser = command_subparser.add_parser('targets')
-    targets_subparser.add_argument('--format', '-f', choices=['json', 'yaml', 'text'], default='text')
+    targets_subparser.add_argument('--format', '-f', choices=OutputFormat.values(), default='text')
 
     init_subparser = command_subparser.add_parser('init')
     init_subparser.add_argument('archives', nargs='*')
@@ -80,14 +84,43 @@ def parse_args() -> Callable:
 
     command_functions: dict[str, Callable[[ProgramArguments], Any]] = {
         'version': lambda args: print(__version__),
-        'targets': lambda args: command.targets_command(args.config_file, output=args.format),
-        'init': lambda args: command.init_command(args.config_file, args.targets),
-        'info': lambda args: command.info_command(args.config_file, args.targets),
-        'list': lambda args: command.list_command(args.config_file, args.archives),
-        'create': lambda args: command.create_command(args.config_file, args.archives),
-        'key-export': lambda args: command.key_export_command(args.config_file, args.archives),
-        'key-cleanup': lambda args: command.key_cleanup_command(args.config_file, args.archives),
-        'key-import': lambda args: command.key_import_command(args.config_file, args.target, args.keyfile, args.password_file)
+        'generate-config': lambda args: command.generate_example_config(
+            args.config_file,
+        ),
+        'targets': lambda args: command.targets_command(
+            args.config_file,
+            output=args.format,
+        ),
+        'init': lambda args: command.init_command(
+            args.config_file,
+            args.targets,
+        ),
+        'info': lambda args: command.info_command(
+            args.config_file,
+            args.targets,
+        ),
+        'list': lambda args: command.list_command(
+            args.config_file,
+            args.archives,
+        ),
+        'create': lambda args: command.create_command(
+            args.config_file,
+            args.archives,
+        ),
+        'key-export': lambda args: command.key_export_command(
+            args.config_file,
+            args.archives,
+        ),
+        'key-cleanup': lambda args: command.key_cleanup_command(
+            args.config_file,
+            args.archives,
+        ),
+        'key-import': lambda args: command.key_import_command(
+            args.config_file,
+            args.target,
+            args.keyfile,
+            args.password_file,
+        )
     }
 
     program_args = ProgramArguments(**parser.parse_args().__dict__)
@@ -107,6 +140,9 @@ def main() -> None:
     except ConfigValidationError as ex:
         logger.error(f'Error(s) encountered while reading configuration file: {ex}')
         ex.log_errors()
+        exit(1)
+    except RuntimeError as ex:
+        logger.error(ex)
         exit(1)
 
 

@@ -1,14 +1,11 @@
 from pathlib import Path
 from subprocess import Popen, PIPE, STDOUT, DEVNULL, CalledProcessError
-from typing import Generator, Optional
 from logging import getLogger
 
 from .config import ConfigValidationError, read_config, Archive
+from .types import StringGenerator, EnvironmentMap
 
 logger = getLogger(__package__)
-
-EnvironmentMap = Optional[dict[str, str]]
-StringGenerator = Generator[str, None, None]
 
 
 def execute(cmd: list[str], env: EnvironmentMap = None, stderr: int = STDOUT) -> StringGenerator:
@@ -44,8 +41,6 @@ def get_targets(config_file: Path, names: list[str] = None) -> list[Archive]:
     if not targets:
         raise ConfigValidationError([f'No targets found matching names: {names}'])
     return targets
-
-
 
 
 def update_ssh_known_hosts(hostname: str):

@@ -4,12 +4,11 @@ from getpass import getpass
 from itertools import chain, groupby
 from pathlib import Path
 from logging import getLogger
-from shutil import copy
 from subprocess import CalledProcessError
-from typing import Literal
 
 from .config import RemoteRepository
 from .util import run_cmd, get_targets, execute, update_ssh_known_hosts
+from .types import OutputFormat, TargetTuple
 
 logger = getLogger(__package__)
 
@@ -64,7 +63,7 @@ def key_export_command(config_file: Path, target_names: list[str]) -> None:
         logger.info(f'\t{f}')
 
 
-def key_import_command(config_file: Path, target: tuple[str, str], keyfile: Path, password_file: Path):
+def key_import_command(config_file: Path, target: TargetTuple, keyfile: Path, password_file: Path):
     if password_file is None:
         password = getpass('Enter password for existing archive: ')
     else:
@@ -138,7 +137,7 @@ def list_command(config_file: Path, target_names: list[str]) -> None:
             logger.error(ex)
 
 
-def targets_command(config_file: Path, output: Literal['json', 'yaml', 'text'] = 'text') -> None:
+def targets_command(config_file: Path, output: OutputFormat = 'text') -> None:
     all_targets = get_targets(config_file)
 
     if output == 'json':
