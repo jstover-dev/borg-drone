@@ -14,8 +14,12 @@ from .types import OutputFormat, TargetTuple, ArchiveNames
 logger = getLogger(__package__)
 
 
-def generate_config_command(config_file: Path) -> None:
-    if config_file.exists():
+def generate_config_command(config_file: Path, overwrite: bool = False) -> None:
+    """
+    Generate an example configuration file.
+    If the file exists and force=True, the file will be overwritten.
+    """
+    if config_file.exists() and not overwrite:
         raise RuntimeError(f'Configuration file already exists: {config_file}')
     config_file.write_text((Path(__file__).parent / 'example.yml').read_text())
     logger.info(f'Configuration file created: {config_file}')
@@ -23,6 +27,10 @@ def generate_config_command(config_file: Path) -> None:
 
 
 def init_command(config_file: Path, archive_names: ArchiveNames) -> None:
+    """
+    Wrapper for calling 'borg init' on all targets for the provided archives
+    Initialises all configured borg repositories
+    """
     for target in get_targets(config_file, archive_names):
         if target.initialised:
             logger.info(f'{target.repo.name}:{target.name}: Already initialised')
@@ -49,6 +57,10 @@ def init_command(config_file: Path, archive_names: ArchiveNames) -> None:
 
 
 def key_export_command(config_file: Path, archive_names: ArchiveNames) -> None:
+    """
+    Export the repo keyfile that was produced by the 'init' command.
+    These key and password files can be reimported by using 'key-import'
+    """
     exported = []
     for target in get_targets(config_file, archive_names):
         try:
@@ -74,6 +86,12 @@ def key_export_command(config_file: Path, archive_names: ArchiveNames) -> None:
 
 def key_import_command(
         config_file: Path, repo_target: TargetTuple, keyfile: Optional[Path], password_file: Optional[Path]) -> None:
+    """
+    Import a key file and password into a already configured target.
+    This is mostly useful after restoring a backup since it allows for continued use of the repository.
+
+    repo_target is a tuple given as (repo, archive)
+    """
     if keyfile is None:
         raise RuntimeError('keyfile must not be empty')
     if repo_target is None:
@@ -94,6 +112,10 @@ def key_import_command(
 
 
 def key_cleanup_command(config_file: Path, archive_names: ArchiveNames) -> None:
+    """
+    Delete all unnecessary keys that were produced by 'key export' command
+    These keys are not needed for proper function of borg-drone
+    """
     for target in get_targets(config_file, archive_names):
         for keyfile in (target.keyfile, target.paper_keyfile):
             if keyfile.exists():
@@ -102,6 +124,10 @@ def key_cleanup_command(config_file: Path, archive_names: ArchiveNames) -> None:
 
 
 def create_command(config_file: Path, archive_names: ArchiveNames) -> None:
+    """
+    Wrapper for calling 'borg create' on all targets for the provided archives
+    Also calls 'borg prune' and 'borg compact' if specified by the configuration
+    """
     for target in get_targets(config_file, archive_names):
         argv = ['borg', 'create', '--stats', '--compression', target.compression]
         if target.one_file_system:
@@ -132,6 +158,9 @@ def create_command(config_file: Path, archive_names: ArchiveNames) -> None:
 
 
 def info_command(config_file: Path, archives: ArchiveNames) -> None:
+    """
+    Wrapper for calling 'borg info' on all targets for the provided archives
+    """
     for target in get_targets(config_file, archives):
         try:
             run_cmd(['borg', 'info'], env=target.environment)
@@ -140,6 +169,9 @@ def info_command(config_file: Path, archives: ArchiveNames) -> None:
 
 
 def list_command(config_file: Path, archive_names: ArchiveNames) -> None:
+    """
+    Wrapper for calling 'borg list' on all targets for the provided archives
+    """
     for target in get_targets(config_file, archive_names):
         try:
             run_cmd(['borg', 'list'], env=target.environment)
@@ -148,6 +180,10 @@ def list_command(config_file: Path, archive_names: ArchiveNames) -> None:
 
 
 def targets_command(config_file: Path, output: OutputFormat = OutputFormat.text) -> None:
+    """
+    Print all all targets to stdout.
+    Output format can be either 'json', 'yaml', or 'text'
+    """
     all_targets = get_targets(config_file)
 
     if output == OutputFormat.json:

@@ -6,6 +6,7 @@ EnvironmentMap = Optional[dict[str, str]]
 StringGenerator = Generator[str, None, None]
 
 TargetTuple = Optional[tuple[str, str]]
+TargetTupleList = Optional[list[tuple[str, str]]]
 ArchiveNames = Optional[list[str]]
 
 

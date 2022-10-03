@@ -6,7 +6,7 @@ from pathlib import Path
 
 from . import __version__, command
 from .config import ConfigValidationError, DEFAULT_CONFIG_FILE
-from .types import OutputFormat, TargetTuple, ArchiveNames
+from .types import OutputFormat, TargetTuple, ArchiveNames, TargetTupleList
 
 logger = logging.getLogger(__package__)
 
@@ -18,11 +18,12 @@ class ProgramArguments:
     command: str
     config_file: Path
     target: TargetTuple = None
-    targets: Optional[list[tuple[str, str]]] = None
+    targets: TargetTupleList = None
     archives: ArchiveNames = None
     keyfile: Optional[Path] = None
     password_file: Optional[Path] = None
     format: OutputFormat = OutputFormat.text
+    force: bool = False
 
 
 @dataclass
@@ -86,6 +87,7 @@ def parse_args() -> Callable[[], Any]:
         'version': lambda args: print(__version__),
         'generate-config': lambda args: command.generate_config_command(
             args.config_file,
+            overwrite=args.force,
         ),
         'targets': lambda args: command.targets_command(
             args.config_file,
