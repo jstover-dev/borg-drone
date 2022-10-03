@@ -5,10 +5,11 @@ from itertools import chain, groupby
 from pathlib import Path
 from logging import getLogger
 from subprocess import CalledProcessError
+from typing import Optional
 
 from .config import RemoteRepository
 from .util import run_cmd, get_targets, execute, update_ssh_known_hosts
-from .types import OutputFormat, TargetTuple
+from .types import OutputFormat, TargetTuple, ArchiveNames
 
 logger = getLogger(__package__)
 
@@ -21,8 +22,8 @@ def generate_config_command(config_file: Path) -> None:
     logger.info(f'Edit this file to configure the application')
 
 
-def init_command(config_file: Path, target_names: list[str]) -> None:
-    for target in get_targets(config_file, target_names):
+def init_command(config_file: Path, archive_names: ArchiveNames) -> None:
+    for target in get_targets(config_file, archive_names):
         if target.initialised:
             logger.info(f'{target.repo.name}:{target.name}: Already initialised')
             continue
@@ -47,9 +48,9 @@ def init_command(config_file: Path, target_names: list[str]) -> None:
             (target.config_path / '.initialised').touch(exist_ok=True)
 
 
-def key_export_command(config_file: Path, target_names: list[str]) -> None:
+def key_export_command(config_file: Path, archive_names: ArchiveNames) -> None:
     exported = []
-    for target in get_targets(config_file, target_names):
+    for target in get_targets(config_file, archive_names):
         try:
             lines = list(execute(['borg', 'key', 'export', '--paper'], env=target.environment))
         except CalledProcessError as ex:
@@ -71,12 +72,17 @@ def key_export_command(config_file: Path, target_names: list[str]) -> None:
         logger.info(f'\t{f}')
 
 
-def key_import_command(config_file: Path, target: TargetTuple, keyfile: Path, password_file: Path):
+def key_import_command(
+        config_file: Path, repo_target: TargetTuple, keyfile: Optional[Path], password_file: Optional[Path]) -> None:
+    if keyfile is None:
+        raise RuntimeError('keyfile must not be empty')
+    if repo_target is None:
+        raise RuntimeError('No target provided')
     if password_file is None:
         password = getpass('Enter password for existing archive: ')
     else:
         password = password_file.read_text()
-    repo, archive = target
+    repo, archive = repo_target
     for target in get_targets(config_file, [archive]):
         if target.repo.name == repo:
             target.create_password_file(contents=password)
@@ -87,16 +93,16 @@ def key_import_command(config_file: Path, target: TargetTuple, keyfile: Path, pa
             logger.info(f'Imported keys for {repo}:{archive} successfully')
 
 
-def key_cleanup_command(config_file: Path, target_names: list[str]) -> None:
-    for target in get_targets(config_file, target_names):
+def key_cleanup_command(config_file: Path, archive_names: ArchiveNames) -> None:
+    for target in get_targets(config_file, archive_names):
         for keyfile in (target.keyfile, target.paper_keyfile):
             if keyfile.exists():
                 keyfile.unlink()
                 logger.info(f'Removed {keyfile}')
 
 
-def create_command(config_file: Path, target_names: list[str]) -> None:
-    for target in get_targets(config_file, target_names):
+def create_command(config_file: Path, archive_names: ArchiveNames) -> None:
+    for target in get_targets(config_file, archive_names):
         argv = ['borg', 'create', '--stats', '--compression', target.compression]
         if target.one_file_system:
             argv.append('--one-file-system')
@@ -112,11 +118,7 @@ def create_command(config_file: Path, target_names: list[str]) -> None:
         if target.repo.prune:
             prune_argv = ['borg', 'prune', '-v', '--list']
             prune_argv += chain(
-                *[
-                    (f'--{arg}', str(value))
-                    for prune_arg in target.repo.prune
-                    for arg, value in prune_arg.items()
-                ])
+                *[(f'--{arg}', str(value)) for prune_arg in target.repo.prune for arg, value in prune_arg.items()])
             try:
                 run_cmd(prune_argv, env=target.environment)
             except CalledProcessError as ex:
@@ -129,7 +131,7 @@ def create_command(config_file: Path, target_names: list[str]) -> None:
                 logger.error(ex)
 
 
-def info_command(config_file: Path, archives: list[str]) -> None:
+def info_command(config_file: Path, archives: ArchiveNames) -> None:
     for target in get_targets(config_file, archives):
         try:
             run_cmd(['borg', 'info'], env=target.environment)
@@ -137,27 +139,27 @@ def info_command(config_file: Path, archives: list[str]) -> None:
             logger.error(ex)
 
 
-def list_command(config_file: Path, target_names: list[str]) -> None:
-    for target in get_targets(config_file, target_names):
+def list_command(config_file: Path, archive_names: ArchiveNames) -> None:
+    for target in get_targets(config_file, archive_names):
         try:
             run_cmd(['borg', 'list'], env=target.environment)
         except CalledProcessError as ex:
             logger.error(ex)
 
 
-def targets_command(config_file: Path, output: OutputFormat = 'text') -> None:
+def targets_command(config_file: Path, output: OutputFormat = OutputFormat.text) -> None:
     all_targets = get_targets(config_file)
 
-    if output == 'json':
+    if output == OutputFormat.json:
         print(json.dumps([x.to_dict() for x in all_targets], indent=2))
         return
 
-    elif output == 'yaml':
+    elif output == OutputFormat.yaml:
         print(config_file.read_text())
         return
 
-    for name, targets in groupby(all_targets, key=lambda x: x.name):
-        targets = list(targets)
+    for name, grouped_targets in groupby(all_targets, key=lambda x: x.name):
+        targets = list(grouped_targets)
         if not targets:
             continue
         print(f'[{name}]')

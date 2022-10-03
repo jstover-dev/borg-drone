@@ -32,7 +32,7 @@ class ConfigValidationError(Exception):
         super().__init__()
         self.errors = errors
 
-    def log_errors(self):
+    def log_errors(self) -> None:
         for error in self.errors:
             logger.error(f'> {error}')
 
@@ -77,7 +77,7 @@ class LocalRepository(ConfigItem):
     def url(self) -> str:
         return self.path
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'local:{self.path}'
 
 
@@ -107,7 +107,7 @@ class RemoteRepository(ConfigItem):
                 path = '/.' + path
         return f'ssh://{username}{self.hostname}:{self.port}{path}'
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'remote:{self.username}@{self.hostname}/{self.path}'
 
 
@@ -141,7 +141,7 @@ class Archive(ConfigItem):
     def paper_keyfile(self) -> Path:
         return self.config_path / 'keyfile.txt'
 
-    def create_password_file(self, contents: str = None) -> None:
+    def create_password_file(self, contents: Optional[str] = None) -> None:
         passwd = self.config_path / 'passwd'
         if not passwd.exists():
             passwd.write_text(contents or token_hex(32))
@@ -172,7 +172,7 @@ class Archive(ConfigItem):
 
         return env
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {k: v.__dict__ if isinstance(v, ConfigItem) else v for k, v in self.__dict__.items()}
 
 
@@ -214,8 +214,8 @@ def parse_config(file: Path) -> list[Archive]:
 
     # Check for duplicated repository names in remote/local section
     repo_names = []
-    for repo_type in ('remote', 'local'):
-        repo_names += list(config['repositories'].get(repo_type, {}))
+    for repo_type_string in ('remote', 'local'):
+        repo_names += list(config['repositories'].get(repo_type_string, {}))
     repository_duplicates = set(item for item in repo_names if repo_names.count(item) > 1)
     if repository_duplicates:
         errors |= set(f'Duplicate repository name: {name}' for name in repository_duplicates)
@@ -225,8 +225,7 @@ def parse_config(file: Path) -> list[Archive]:
         # config.repositories can refer to either local or remote repositories
         repositories = {
             name: dict(repo, type=repo_type)
-            for repo_type in ['remote', 'local']
-            for name, repo in config['repositories'].get(repo_type, {}).items()
+            for repo_type in ['remote', 'local'] for name, repo in config['repositories'].get(repo_type, {}).items()
         }
         errors |= set(replace_references(archive_config, 'repositories', repositories))
 

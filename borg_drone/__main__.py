@@ -1,12 +1,12 @@
 import logging
 from argparse import ArgumentParser
-from typing import Callable, Any, Literal
+from typing import Any, Callable, Optional
 from dataclasses import dataclass
 from pathlib import Path
 
 from . import __version__, command
 from .config import ConfigValidationError, DEFAULT_CONFIG_FILE
-from .types import OutputFormat, TargetTuple
+from .types import OutputFormat, TargetTuple, ArchiveNames
 
 logger = logging.getLogger(__package__)
 
@@ -17,12 +17,12 @@ CommandFunction = Callable[[Path, list[str]], None]
 class ProgramArguments:
     command: str
     config_file: Path
-    target: tuple[str, str] = None
-    targets: list[tuple[str, str]] = None
-    archives: list[str] = None
-    keyfile: Path = None
-    password_file: Path = None
-    format: Literal['json', 'yaml', 'text'] = 'text'
+    target: TargetTuple = None
+    targets: Optional[list[tuple[str, str]]] = None
+    archives: ArchiveNames = None
+    keyfile: Optional[Path] = None
+    password_file: Optional[Path] = None
+    format: OutputFormat = OutputFormat.text
 
 
 @dataclass
@@ -38,7 +38,7 @@ def archive_target(text: str) -> TargetTuple:
     return target[0], target[1]
 
 
-def parse_args() -> Callable:
+def parse_args() -> Callable[[], Any]:
 
     parser = ArgumentParser()
     parser.add_argument(
@@ -89,15 +89,15 @@ def parse_args() -> Callable:
         ),
         'targets': lambda args: command.targets_command(
             args.config_file,
-            output=args.format,
+            output=OutputFormat(args.format),
         ),
         'init': lambda args: command.init_command(
             args.config_file,
-            args.targets,
+            args.archives,
         ),
         'info': lambda args: command.info_command(
             args.config_file,
-            args.targets,
+            args.archives,
         ),
         'list': lambda args: command.list_command(
             args.config_file,
@@ -130,9 +130,7 @@ def parse_args() -> Callable:
 
 def main() -> None:
     logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s │ %(levelname)-7s │ %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S')
+        level=logging.INFO, format='%(asctime)s │ %(levelname)-7s │ %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
     run_command = parse_args()
 
     try:

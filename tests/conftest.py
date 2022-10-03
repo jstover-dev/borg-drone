@@ -39,13 +39,16 @@ def config_file(tmp_path: Path):
                     'prune': [
                         {
                             'keep-daily': 7
-                        }, {
+                        },
+                        {
                             'keep-weekly': 3
-                        }, {
+                        },
+                        {
                             'keep-monthly': 6
-                        }, {
+                        },
+                        {
                             'keep-yearly': 2
-                        }
+                        },
                     ]
                 },
             }

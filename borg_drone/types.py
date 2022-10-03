@@ -5,7 +5,8 @@ from typing import Optional
 EnvironmentMap = Optional[dict[str, str]]
 StringGenerator = Generator[str, None, None]
 
-TargetTuple: tuple[str, str]
+TargetTuple = Optional[tuple[str, str]]
+ArchiveNames = Optional[list[str]]
 
 
 class OutputFormat(Enum):
@@ -14,5 +15,5 @@ class OutputFormat(Enum):
     text = 'text'
 
     @classmethod
-    def values(cls):
-        return [x.value for x in cls]
+    def values(cls) -> list[str]:
+        return [str(x.value) for x in cls]
