@@ -171,6 +171,12 @@ class Archive(ConfigItem):
 
         return env
 
+    def to_dict(self) -> dict:
+        return {
+            k: v.__dict__ if isinstance(v, ConfigItem) else v
+            for k, v in self.__dict__.items()
+        }
+
 
 # TODO: Clean this up
 def parse_config(file: Path) -> list[Archive]:

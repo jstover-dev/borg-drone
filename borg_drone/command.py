@@ -1,3 +1,4 @@
+import json
 import os
 from getpass import getpass
 from itertools import chain, groupby
@@ -5,6 +6,7 @@ from pathlib import Path
 from logging import getLogger
 from shutil import copy
 from subprocess import CalledProcessError
+from typing import Literal
 
 from .config import RemoteRepository
 from .util import run_cmd, get_targets, execute, update_ssh_known_hosts
@@ -136,8 +138,18 @@ def list_command(config_file: Path, target_names: list[str]) -> None:
             logger.error(ex)
 
 
-def targets_command(config_file: Path, json: bool = False) -> None:
-    for name, targets in groupby(get_targets(config_file), key=lambda x: x.name):
+def targets_command(config_file: Path, output: Literal['json', 'yaml', 'text'] = 'text') -> None:
+    all_targets = get_targets(config_file)
+
+    if output == 'json':
+        print(json.dumps([x.to_dict() for x in all_targets], indent=2))
+        return
+
+    elif output == 'yaml':
+        print(config_file.read_text())
+        return
+
+    for name, targets in groupby(all_targets, key=lambda x: x.name):
         targets = list(targets)
         if not targets:
             continue

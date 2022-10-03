@@ -1,6 +1,6 @@
 import logging
 from argparse import ArgumentParser
-from typing import Callable, Any
+from typing import Callable, Any, Literal
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -21,6 +21,7 @@ class ProgramArguments:
     archives: list[str] = None
     keyfile: Path = None
     password_file: Path = None
+    format: Literal['json', 'yaml', 'text'] = 'text'
 
 
 @dataclass
@@ -50,7 +51,9 @@ def parse_args() -> Callable:
 
     command_subparser = parser.add_subparsers(dest='command', required=True)
     command_subparser.add_parser('version')
-    command_subparser.add_parser('targets')
+
+    targets_subparser = command_subparser.add_parser('targets')
+    targets_subparser.add_argument('--format', '-f', choices=['json', 'yaml', 'text'], default='text')
 
     init_subparser = command_subparser.add_parser('init')
     init_subparser.add_argument('archives', nargs='*')
@@ -77,7 +80,7 @@ def parse_args() -> Callable:
 
     command_functions: dict[str, Callable[[ProgramArguments], Any]] = {
         'version': lambda args: print(__version__),
-        'targets': lambda args: command.targets_command(args.config_file),
+        'targets': lambda args: command.targets_command(args.config_file, output=args.format),
         'init': lambda args: command.init_command(args.config_file, args.targets),
         'info': lambda args: command.info_command(args.config_file, args.targets),
         'list': lambda args: command.list_command(args.config_file, args.archives),
