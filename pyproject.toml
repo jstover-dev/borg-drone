@@ -13,6 +13,9 @@ authors = []
 classifiers = []
 dynamic = ["version", "description"]
 
+[tool.flit.sdist]
+exclude = ["tests/", "Makefile"]
+
 
 [project.scripts]
 borg-drone = "borg_drone.__main__:main"
@@ -23,6 +26,7 @@ dev = [
     "yapf",
     "autoflake",
     "mypy",
+    "flit"
 ]
 test = [
     "pytest",
