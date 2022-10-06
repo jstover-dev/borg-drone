@@ -1,0 +1,17 @@
+image: debian/stable
+
+packages:
+  - python3
+  - python3-pip
+
+tasks:
+  - setup: |
+      python3 -V
+      pip -V
+      export PATH="$HOME/.local/bin:$PATH"
+      pip install -q -U pip
+
+  - test: |
+      python3 -V
+      pip -V
+      pip install --no-color --progress-bar off '.[test]'
