@@ -4,6 +4,9 @@ packages:
   - python3
   - python3-pip
 
+environment:
+  REPO_NAME: borg-drone
+
 tasks:
   - setup: |
       python3 -V
@@ -14,4 +17,5 @@ tasks:
   - test: |
       python3 -V
       pip -V
+      cd ${REPO_NAME}
       pip install --no-color --progress-bar off '.[test]'
