@@ -1,5 +1,7 @@
 # borg-drone
 
+[![builds.sr.ht status](https://builds.sr.ht/~jmstover/borg-drone/commits/master.svg)](https://builds.sr.ht/~jmstover/borg-drone/commits/master?)
+
 (yet another) borg wrapper.
 
 This application is a helper to run multiple borg backups with a single command.
