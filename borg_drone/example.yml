@@ -17,10 +17,10 @@ repositories:
       path: /backups/example-a
       encryption: keyfile-blake2
       prune:
-        - keep-daily: 7
-        - keep-weekly: 3
-        - keep-monthly: 6
-        - keep-yearly: 2
+        - keep_daily: 7
+        - keep_weekly: 3
+        - keep_monthly: 6
+        - keep_yearly: 2
       compact: false
 
     # Local backup location B
@@ -41,10 +41,10 @@ repositories:
       ssh_key: ~/.ssh/borg
       encryption: repokey-blake2
       prune:
-        - keep-daily: 7
-        - keep-weekly: 3
-        - keep-monthly: 6
-        - keep-yearly: 2
+        - keep_daily: 7
+        - keep_weekly: 3
+        - keep_monthly: 6
+        - keep_yearly: 2
       compact: false
 
 
@@ -52,11 +52,11 @@ repositories:
 archives:
 
   # Backup definition for this machine
-  this-machine:
+  this-machine-1:
 
     # Use multiple repositories as defined above
     repositories:
-      - local-example-a
+      - local-example
       - remote-example
 
     # Include the following directories
@@ -74,3 +74,12 @@ archives:
 
     # Enable the --one-file-system borg options
     one_file_system: true
+
+  this-machine-2:
+    repositories:
+      local-example:
+      remote-example:
+        encryption: encryption_override
+
+    paths:
+      - ~/Documents

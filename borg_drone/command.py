@@ -1,14 +1,14 @@
 import json
 import os
 from getpass import getpass
-from itertools import chain, groupby
+from itertools import groupby
 from pathlib import Path
 from logging import getLogger
 from subprocess import CalledProcessError
 from typing import Optional
 
 from .config import RemoteRepository
-from .util import run_cmd, get_targets, execute, update_ssh_known_hosts
+from .util import run_cmd, get_targets, execute, update_ssh_known_hosts, CustomJSONEncoder
 from .types import OutputFormat, TargetTuple, ArchiveNames
 
 logger = getLogger(__package__)
@@ -142,9 +142,7 @@ def create_command(config_file: Path, archive_names: ArchiveNames) -> None:
             logger.error(ex)
 
         if target.repo.prune:
-            prune_argv = ['borg', 'prune', '-v', '--list']
-            prune_argv += chain(
-                *[(f'--{arg}', str(value)) for prune_arg in target.repo.prune for arg, value in prune_arg.items()])
+            prune_argv = ['borg', 'prune', '-v', '--list', *target.repo.prune.argv]
             try:
                 run_cmd(prune_argv, env=target.environment)
             except CalledProcessError as ex:
@@ -187,7 +185,7 @@ def targets_command(config_file: Path, output: OutputFormat = OutputFormat.text)
     all_targets = get_targets(config_file)
 
     if output == OutputFormat.json:
-        print(json.dumps([x.to_dict() for x in all_targets], indent=2))
+        print(json.dumps([x.to_dict() for x in all_targets], indent=2, cls=CustomJSONEncoder))
         return
 
     elif output == OutputFormat.yaml:

@@ -1,9 +1,11 @@
+from json import JSONEncoder
 from pathlib import Path
 from subprocess import Popen, PIPE, STDOUT, DEVNULL, CalledProcessError
 from logging import getLogger
-from typing import Optional
+from typing import Optional, Any
+from dataclasses import asdict
 
-from .config import ConfigValidationError, read_config, Archive
+from .config import ConfigValidationError, read_config, Archive, PruneOptions
 from .types import StringGenerator, EnvironmentMap
 
 logger = getLogger(__package__)
@@ -58,3 +60,11 @@ def update_ssh_known_hosts(hostname: str) -> None:
             host_keys = '\n'.join(lines)
             with known_hosts.open('a') as f:
                 f.write(f'\n{host_keys}')
+
+
+class CustomJSONEncoder(JSONEncoder):
+
+    def default(self, o: Any) -> Any:
+        if isinstance(o, PruneOptions):
+            return [{k: v} for k, v in asdict(o).items() if v is not None]
+        return super().default(o)

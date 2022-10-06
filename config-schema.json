@@ -37,19 +37,19 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
-                "keep-hourly": {
+                "keep_hourly": {
                     "type": "integer"
                 },
-                "keep-daily": {
+                "keep_daily": {
                     "type": "integer"
                 },
-                "keep-weekly": {
+                "keep_weekly": {
                     "type": "integer"
                 },
-                "keep-monthly": {
+                "keep_monthly": {
                     "type": "integer"
                 },
-                "keep-yearly": {
+                "keep_yearly": {
                     "type": "integer"
                 }
             },

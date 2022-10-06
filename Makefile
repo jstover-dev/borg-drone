@@ -9,4 +9,4 @@ lint-fix:
 	mypy --install-types --non-interactive $(APP_NAME)
 
 test:
-	python -m pytest -vvv tests/
+	python -m pytest -vvv -s tests/

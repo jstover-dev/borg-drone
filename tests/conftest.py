@@ -1,7 +1,98 @@
+from dataclasses import asdict
 from pathlib import Path
 
 import yaml
 import pytest
+
+from borg_drone.config import Archive, LocalRepository, RemoteRepository, PruneOptions
+
+
+@pytest.fixture
+def local_repository_usb():
+    return LocalRepository(
+        name='usb',
+        encryption='keyfile-blake2',
+        path='/path/to/usb',
+        prune=PruneOptions(
+            keep_daily=7,
+            keep_weekly=3,
+            keep_monthly=6,
+            keep_yearly=2,
+        ),
+        compact=False,
+    )
+
+
+@pytest.fixture
+def remote_repository_offsite():
+    return RemoteRepository(
+        name='offsite',
+        encryption='repokey-blake2',
+        hostname='offsite.example.com',
+        path='.',
+        username='backup',
+        port=22,
+        ssh_key='~/.ssh/borg',
+        prune=PruneOptions(
+            keep_daily=7,
+            keep_weekly=3,
+            keep_monthly=6,
+            keep_yearly=2,
+        ),
+        compact=False,
+    )
+
+
+@pytest.fixture
+def remote_repository_offsite_with_overrides(remote_repository_offsite):
+    attrs = asdict(remote_repository_offsite)
+    attrs['prune'] = PruneOptions(keep_daily=1, keep_monthly=2)
+    return RemoteRepository(**dict(attrs, encryption='encryption_override'))
+
+
+@pytest.fixture
+def archive1_targets(local_repository_usb, remote_repository_offsite):
+    return [
+        Archive(
+            name='archive1',
+            repo=repo,
+            paths=[
+                '~/.ssh',
+                '~/.gnupg',
+                '~/src',
+                '~/bin',
+                '~/Desktop',
+                '~/Documents',
+                '~/Pictures',
+            ],
+            exclude=[
+                '**/venv',
+                '**/.direnv',
+                '**/node_modules',
+            ],
+            one_file_system=True,
+            compression='lz4',
+        ) for repo in (local_repository_usb, remote_repository_offsite)
+    ]
+
+
+@pytest.fixture
+def archive2_targets(local_repository_usb, remote_repository_offsite):
+    return [
+        Archive(
+            name='archive2',
+            repo=repo,
+            paths=['/data'],
+            exclude=[],
+            one_file_system=False,
+            compression='lz4',
+        ) for repo in (local_repository_usb, remote_repository_offsite)
+    ]
+
+
+@pytest.fixture
+def mock_targets(archive1_targets, archive2_targets):
+    return [*archive1_targets, *archive2_targets]
 
 
 @pytest.fixture
@@ -15,39 +106,39 @@ def config_file(tmp_path: Path):
                     'encryption': 'keyfile-blake2',
                     'prune': [
                         {
-                            'keep-daily': 7
+                            'keep_daily': 7
                         },
                         {
-                            'keep-weekly': 3
+                            'keep_weekly': 3
                         },
                         {
-                            'keep-monthly': 6
+                            'keep_monthly': 6
                         },
                         {
-                            'keep-yearly': 2
+                            'keep_yearly': 2
                         },
                     ]
                 }
             },
             'remote': {
                 'offsite': {
-                    'hostname': 'offsite.example.comt',
+                    'hostname': 'offsite.example.com',
                     'username': 'backup',
                     'port': 22,
                     'ssh_key': '~/.ssh/borg',
                     'encryption': 'repokey-blake2',
                     'prune': [
                         {
-                            'keep-daily': 7
+                            'keep_daily': 7
                         },
                         {
-                            'keep-weekly': 3
+                            'keep_weekly': 3
                         },
                         {
-                            'keep-monthly': 6
+                            'keep_monthly': 6
                         },
                         {
-                            'keep-yearly': 2
+                            'keep_yearly': 2
                         },
                     ]
                 },
@@ -75,10 +166,10 @@ def config_file(tmp_path: Path):
                         'encryption': 'encryption_override',
                         'prune': [
                             {
-                                'keep-daily': 1
+                                'keep_daily': 1
                             },
                             {
-                                'keep-monthly': 2
+                                'keep_monthly': 2
                             },
                         ]
                     },
