@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import __version__, command
+from .util import setup_logging
 from .config import ConfigValidationError, DEFAULT_CONFIG_FILE
 from .types import OutputFormat, TargetTuple, ArchiveNames, TargetTupleList
 
@@ -131,10 +132,8 @@ def parse_args() -> Callable[[], Any]:
 
 
 def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO, format='%(asctime)s │ %(levelname)-7s │ %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    setup_logging()
     run_command = parse_args()
-
     try:
         run_command()
     except ConfigValidationError as ex:

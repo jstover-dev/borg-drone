@@ -1,20 +1,64 @@
 from json import JSONEncoder
 from pathlib import Path
 from subprocess import Popen, PIPE, STDOUT, DEVNULL, CalledProcessError
-from logging import getLogger
 from typing import Optional, Any
 from dataclasses import asdict
+import logging
 
 from .config import ConfigValidationError, read_config, Archive, PruneOptions
 from .types import StringGenerator, EnvironmentMap
 
-logger = getLogger(__package__)
+logger = logging.getLogger(__package__)
+
+
+class Colour:
+    RESET = '\x1b[0m'
+    GREY = '\x1b[38;20m'
+    DARK_GREY = '\x1b[90;20m'
+    YELLOW = '\x1b[33;20m'
+    RED = '\x1b[31;20m'
+    BOLD_RED = '\x1b[31;1m'
+
+
+class ColourLogFormatter(logging.Formatter):
+    datefmt = '%Y-%m-%d %H:%M:%S'
+    fmt = '%(asctime)s │ %(levelname)s │ %(message)s'
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.formatters = {
+            logging.DEBUG: self.mkformat(Colour.DARK_GREY),
+            logging.INFO: self.mkformat(Colour.GREY),
+            logging.WARNING: self.mkformat(Colour.YELLOW),
+            logging.ERROR: self.mkformat(Colour.RED),
+            logging.CRITICAL: self.mkformat(Colour.BOLD_RED),
+        }
+
+    @classmethod
+    def mkformat(cls, colour: str) -> logging.Formatter:
+        asctime = f'{colour}%(asctime)s{Colour.RESET}'
+        levelname = f'{colour}%(levelname)-7s{Colour.RESET}'
+        message = f'{colour}%(message)s{Colour.RESET}'
+        return logging.Formatter(cls.fmt % locals(), datefmt=cls.datefmt)
+
+    def format(self, record: logging.LogRecord) -> str:
+        return self.formatters[record.levelno].format(record)
+
+
+def setup_logging() -> None:
+    logger.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    ch.setFormatter(ColourLogFormatter())
+    logger.addHandler(ch)
 
 
 def execute(cmd: list[str], env: EnvironmentMap = None, stderr: int = STDOUT) -> StringGenerator:
     logger.info('> ' + ' '.join(cmd))
     for var, value in (env or {}).items():
-        logger.info(f'>  ENV: {var} = {value}')
+        logger.debug(f'>  ENV: {var} = {value}')
+    if cmd[0] == 'borg':
+        return
     with Popen(cmd, stdout=PIPE, stderr=stderr, universal_newlines=True, env=env) as proc:
         while True:
             if proc.stdout is None:
@@ -31,11 +75,11 @@ def execute(cmd: list[str], env: EnvironmentMap = None, stderr: int = STDOUT) ->
 
 
 def run_cmd(cmd: list[str], env: EnvironmentMap = None, stderr: int = STDOUT) -> list[str]:
+    logger.info('')
     output = []
     for line in execute(cmd, env, stderr):
         logger.info(line)
         output.append(line)
-    logger.info('')
     return output
 
 
