@@ -84,6 +84,7 @@ class LocalRepository(ConfigItem):
     path: str
     prune: PruneOptions = field(default_factory=PruneOptions)
     compact: bool = False
+    upload_path: str = ''
 
     is_remote = False
     required_attributes = {'encryption', 'path'}

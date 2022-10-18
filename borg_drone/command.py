@@ -7,7 +7,7 @@ from logging import getLogger
 from subprocess import CalledProcessError
 from typing import Optional
 
-from .config import RemoteRepository
+from .config import LocalRepository, RemoteRepository
 from .util import run_cmd, get_targets, execute, update_ssh_known_hosts, CustomJSONEncoder
 from .types import OutputFormat, TargetTuple, ArchiveNames
 
@@ -78,8 +78,8 @@ def key_export_command(config_file: Path, archive_names: ArchiveNames) -> None:
         exported += [target.keyfile, target.paper_keyfile]
 
     logger.info(f'Encryption keys exported')
-    logger.info('MAKE SURE TO BACKUP THESE FILES, AND THEN REMOVE FROM THE LOCAL FILESYSTEM!')
-    logger.info(f'You can do this by running: `borg-drone key-cleanup`')
+    logger.warning('MAKE SURE TO BACKUP THESE FILES, AND THEN REMOVE FROM THE LOCAL FILESYSTEM!')
+    logger.warning(f'You can do this by running: `borg-drone key-cleanup`')
     for f in exported:
         logger.info(f'\t{f}')
 
@@ -153,6 +153,10 @@ def create_command(config_file: Path, archive_names: ArchiveNames) -> None:
                 run_cmd(['borg', 'compact', '--cleanup-commits', '::'], env=target.environment)
             except CalledProcessError as ex:
                 logger.error(ex)
+
+        if isinstance(target.repo, LocalRepository) and target.repo.upload_path:
+            upload_path = str(Path(target.repo.upload_path) / target.name)
+            run_cmd(['rclone', 'sync', '-v', '--stats-one-line', target.repo.path, upload_path])
 
 
 def info_command(config_file: Path, archives: ArchiveNames) -> None:

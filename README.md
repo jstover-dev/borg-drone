@@ -59,11 +59,12 @@ repositories:
         - keep-yearly: 2
       compact: false
 
-    # Local backup location B
+    # Local backup location B which will be uploaded to an rclone remote
     local-example-2:
       path: /backups/example-b
       encryption: keyfile
       compact: true
+      upload_path: 'b2:backups'
 
 
   # Remote repository definitions
@@ -158,3 +159,31 @@ Import an existing key and password into a target
 # Import key and password for archive 'this-machine' on repository 'local-example-a'
 borg-drone key-import this-machine:local-example-a --keyfile /path/to/keyfile --password-file /path/to/password-file
 ```
+
+## rclone Uploads
+
+Local repositories can optionally be uploaded to an rclone remote `upload_path` option.
+
+This feature required `rclone` to be installed and configured. A remote must be initialised prior to running `borg-drone create`.
+See the [rclone documentation](https://rclone.org/docs/) for details.
+
+Repositories will be uploaded to `<upload_path>/<archive_name>`
+
+_e.g._ Using the following configuration:
+```yaml
+repositories:
+  local:
+    usb:
+      path: /backup/usb
+      encryption: keyfile-blake2
+      upload_path: 'b2:backups'
+archives:
+  archive1:
+    repositories:
+      - usb
+    paths:
+      - /data
+```
+
+Data will first be backed up to a borg repository located at `/backup/usb`,
+then the borg repository itself will be uploaded to the remote pacth `b2:backups/archive1/`

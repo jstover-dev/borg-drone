@@ -92,6 +92,9 @@
                 },
                 "compact": {
                     "type": "boolean"
+                },
+                "upload_path": {
+                    "type": "string"
                 }
             },
             "required": [
