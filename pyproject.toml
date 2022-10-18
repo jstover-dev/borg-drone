@@ -31,6 +31,15 @@ dev = [
 ]
 test = [
     "pytest",
+    "pytest-cov",
+]
+
+[tool.pytest.ini_options]
+addopts = "-vvv --cov=borg_drone --cov-report html"
+
+[tool.coverage.run]
+omit = [
+    "*/__main__.py"
 ]
 
 [tool.yapf]
@@ -50,4 +59,3 @@ ignore_patterns = [
 
 [tool.mypy]
 strict = true
-

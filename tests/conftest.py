@@ -51,20 +51,30 @@ def remote_repository_offsite_with_overrides(remote_repository_offsite):
 
 
 @pytest.fixture
-def archive1_targets(local_repository_usb, remote_repository_offsite):
+def archive_paths() -> dict[str, list[str]]:
+    return {
+        'archive1': [
+            '~/.ssh',
+            '~/.gnupg',
+            '~/src',
+            '~/bin',
+            '~/Desktop',
+            '~/Documents',
+            '~/Pictures',
+        ],
+        'archive2': [
+            '/data',
+        ]
+    }
+
+
+@pytest.fixture
+def archive1_targets(local_repository_usb, remote_repository_offsite, archive_paths):
     return [
         Archive(
             name='archive1',
             repo=repo,
-            paths=[
-                '~/.ssh',
-                '~/.gnupg',
-                '~/src',
-                '~/bin',
-                '~/Desktop',
-                '~/Documents',
-                '~/Pictures',
-            ],
+            paths=archive_paths['archive1'],
             exclude=[
                 '**/venv',
                 '**/.direnv',
@@ -77,12 +87,12 @@ def archive1_targets(local_repository_usb, remote_repository_offsite):
 
 
 @pytest.fixture
-def archive2_targets(local_repository_usb, remote_repository_offsite):
+def archive2_targets(local_repository_usb, remote_repository_offsite, archive_paths):
     return [
         Archive(
             name='archive2',
             repo=repo,
-            paths=['/data'],
+            paths=archive_paths['archive2'],
             exclude=[],
             one_file_system=False,
             compression='lz4',
