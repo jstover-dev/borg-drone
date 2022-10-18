@@ -57,8 +57,6 @@ def execute(cmd: list[str], env: EnvironmentMap = None, stderr: int = STDOUT) ->
     logger.info('> ' + ' '.join(cmd))
     for var, value in (env or {}).items():
         logger.debug(f'>  ENV: {var} = {value}')
-    if cmd[0] == 'borg':
-        return
     with Popen(cmd, stdout=PIPE, stderr=stderr, universal_newlines=True, env=env) as proc:
         while True:
             if proc.stdout is None:
