@@ -52,7 +52,7 @@ def init_command(config_file: Path, archive_names: ArchiveNames) -> None:
         except CalledProcessError as ex:
             logger.error(ex)
         else:
-            logger.info(f'{target.name} initialised')
+            logger.info(f'{target.repo.name}:{target.name} initialised')
             (target.config_path / '.initialised').touch(exist_ok=True)
 
 
@@ -67,6 +67,7 @@ def key_export_command(config_file: Path, archive_names: ArchiveNames) -> None:
             lines = list(execute(['borg', 'key', 'export', '--paper'], env=target.environment))
         except CalledProcessError as ex:
             logger.error(ex)
+            continue
         else:
             target.paper_keyfile.write_text('\n'.join(lines))
 
@@ -74,14 +75,16 @@ def key_export_command(config_file: Path, archive_names: ArchiveNames) -> None:
             run_cmd(['borg', 'key', 'export', '::', str(target.keyfile)], env=target.environment)
         except CalledProcessError as ex:
             logger.error(ex)
+            continue
 
         exported += [target.keyfile, target.paper_keyfile]
 
-    logger.info(f'Encryption keys exported')
-    logger.warning('MAKE SURE TO BACKUP THESE FILES, AND THEN REMOVE FROM THE LOCAL FILESYSTEM!')
-    logger.warning(f'You can do this by running: `borg-drone key-cleanup`')
-    for f in exported:
-        logger.info(f'\t{f}')
+    logger.info(f'{len(exported)} Encryption keys exported')
+    if exported:
+        logger.warning('MAKE SURE TO BACKUP THESE FILES, AND THEN REMOVE FROM THE LOCAL FILESYSTEM!')
+        logger.warning(f'You can do this by running: `borg-drone key-cleanup`')
+        for f in exported:
+            logger.info(f'\t{f}')
 
 
 def key_import_command(
@@ -136,23 +139,14 @@ def create_command(config_file: Path, archive_names: ArchiveNames) -> None:
             argv += ['--exclude', pattern]
         argv.append('::{now}')
         argv += map(os.path.expanduser, target.paths)
-        try:
-            run_cmd(argv, env=target.environment)
-        except CalledProcessError as ex:
-            logger.error(ex)
+        run_cmd(argv, env=target.environment)
 
         if target.repo.prune:
             prune_argv = ['borg', 'prune', '-v', '--list', *target.repo.prune.argv]
-            try:
-                run_cmd(prune_argv, env=target.environment)
-            except CalledProcessError as ex:
-                logger.error(ex)
+            run_cmd(prune_argv, env=target.environment)
 
         if target.repo.compact:
-            try:
-                run_cmd(['borg', 'compact', '--cleanup-commits', '::'], env=target.environment)
-            except CalledProcessError as ex:
-                logger.error(ex)
+            run_cmd(['borg', 'compact', '--cleanup-commits', '::'], env=target.environment)
 
         if isinstance(target.repo, LocalRepository) and target.repo.rclone_upload_path:
             remote_name, remote_base_path = target.repo.rclone_upload_path.split(':', 1)

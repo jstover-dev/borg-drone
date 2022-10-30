@@ -18,6 +18,7 @@ class Colour:
     YELLOW = '\x1b[33;20m'
     RED = '\x1b[31;20m'
     BOLD_RED = '\x1b[31;1m'
+    GREEN = '\x1b[32;20m'
 
 
 class ColourLogFormatter(logging.Formatter):
@@ -69,7 +70,8 @@ def execute(cmd: list[str], env: EnvironmentMap = None, stderr: int = STDOUT) ->
             proc.stdout.close()
         return_code = proc.wait()
         if return_code:
-            raise CalledProcessError(return_code, cmd)
+            raise CalledProcessError(return_code, ' '.join(cmd))
+    logger.info(f'{Colour.GREEN}Command executed successfully{Colour.RESET}')
 
 
 def run_cmd(cmd: list[str], env: EnvironmentMap = None, stderr: int = STDOUT) -> list[str]:

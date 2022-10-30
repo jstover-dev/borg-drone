@@ -140,7 +140,7 @@ def main() -> None:
         logger.error(f'Error(s) encountered while reading configuration file: {ex}')
         ex.log_errors()
         exit(1)
-    except RuntimeError as ex:
+    except Exception as ex:
         logger.error(ex)
         exit(1)
 
