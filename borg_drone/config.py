@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass, fields, field, asdict
 from itertools import chain
 from logging import getLogger
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from secrets import token_hex
 from typing import ClassVar, Optional, Union, Type, Any, TypeVar
 from urllib.parse import urlparse
@@ -84,7 +84,7 @@ class LocalRepository(ConfigItem):
     path: str
     prune: PruneOptions = field(default_factory=PruneOptions)
     compact: bool = False
-    upload_path: str = ''
+    rclone_upload_path: str = ''
 
     is_remote = False
     required_attributes = {'encryption', 'path'}
@@ -180,24 +180,25 @@ class Archive(ConfigItem):
         return (self.config_path / '.initialised').exists()
 
     @property
+    def borg_repository_path(self) -> str:
+        if isinstance(self.repo, RemoteRepository):
+            url = urlparse(self.repo.url)
+            return url._replace(path=os.path.join(url.path, self.name)).geturl()
+        else:
+            return str(PurePosixPath(self.repo.url) / self.name)
+
+    @property
     def environment(self) -> dict[str, str]:
         env = dict(
             BORG_PASSCOMMAND=f'cat {self.password_file}',
             BORG_RELOCATED_REPO_ACCESS_IS_OK='yes',
+            BORG_REPO=self.borg_repository_path,
         )
-
         if isinstance(self.repo, RemoteRepository):
-            url = urlparse(self.repo.url)
-            borg_repo = url._replace(path=os.path.join(url.path, self.name)).geturl()
             borg_rsh = 'ssh -o VisualHostKey=no'
             if self.repo.ssh_key:
                 borg_rsh += f' -i {self.repo.ssh_key}'
             env.update(BORG_RSH=borg_rsh)
-        else:
-            borg_repo = os.path.join(self.repo.url, self.name)
-
-        env.update(BORG_REPO=borg_repo)
-
         return env
 
     def to_dict(self) -> dict[str, Any]:
@@ -242,6 +243,13 @@ def validate_config(data: dict[str, Any]) -> None:
     repository_duplicates = set(item for item in repo_names if repo_names.count(item) > 1)
     if repository_duplicates:
         errors |= set(f'Duplicate repository name: {name}' for name in repository_duplicates)
+
+    # Validate repository upload_path strings
+    for name, repository in local_repositories.items():
+        rclone_upload_path = repository.get('rclone_upload_path')
+        if rclone_upload_path:
+            if rclone_upload_path.count(':') != 1:
+                errors.add(f'Invalid rclone_upload_path "{rclone_upload_path}". Path must contain a single colon')
 
     for name, archive in archives.items():
         # Check required attributes for archive

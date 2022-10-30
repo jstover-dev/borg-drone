@@ -2,7 +2,7 @@ import json
 import os
 from getpass import getpass
 from itertools import groupby
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from logging import getLogger
 from subprocess import CalledProcessError
 from typing import Optional
@@ -154,9 +154,11 @@ def create_command(config_file: Path, archive_names: ArchiveNames) -> None:
             except CalledProcessError as ex:
                 logger.error(ex)
 
-        if isinstance(target.repo, LocalRepository) and target.repo.upload_path:
-            upload_path = str(Path(target.repo.upload_path) / target.name)
-            run_cmd(['rclone', 'sync', '-v', '--stats-one-line', target.repo.path, upload_path])
+        if isinstance(target.repo, LocalRepository) and target.repo.rclone_upload_path:
+            remote_name, remote_base_path = target.repo.rclone_upload_path.split(':', 1)
+            remote_path = PurePosixPath(remote_base_path) / target.name
+            upload_path = f'{remote_name}:{remote_path}'
+            run_cmd(['rclone', 'sync', '-v', '--stats-one-line', target.borg_repository_path, upload_path])
 
 
 def info_command(config_file: Path, archives: ArchiveNames) -> None:

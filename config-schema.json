@@ -93,8 +93,9 @@
                 "compact": {
                     "type": "boolean"
                 },
-                "upload_path": {
-                    "type": "string"
+                "rclone_upload_path": {
+                    "type": "string",
+                    "pattern": "^[^:]*:[^:]*$",
                 }
             },
             "required": [
@@ -126,6 +127,9 @@
                     "type": "integer"
                 },
                 "ssh_key": {
+                    "type": "string"
+                },
+                "path": {
                     "type": "string"
                 },
                 "encryption": {
