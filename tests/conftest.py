@@ -106,9 +106,8 @@ def mock_targets(archive1_targets, archive2_targets):
 
 
 @pytest.fixture
-def config_file(tmp_path: Path):
-    file = tmp_path / 'config.yml'
-    config = {
+def config_data() -> dict:
+    return {
         'repositories': {
             'local': {
                 'usb': {
@@ -188,6 +187,11 @@ def config_file(tmp_path: Path):
             }
         }
     }
+
+
+@pytest.fixture
+def config_file(config_data: dict, tmp_path: Path):
+    file = tmp_path / 'config.yml'
     with file.open('w') as f:
-        yaml.dump(config, f)
+        yaml.dump(config_data, f)
     yield file

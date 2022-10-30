@@ -28,7 +28,7 @@ repositories:
       path: /backups/example-b
       encryption: keyfile
       compact: true
-      upload_path: 'b2:backups/'
+      rclone_upload_path: 'b2:backups/'
 
 
   # Remote repository definitions

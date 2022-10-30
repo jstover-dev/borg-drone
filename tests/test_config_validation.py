@@ -199,3 +199,29 @@ def test_validate_config_multiple_errors():
         'Repository "repo1" is missing attribute "encryption"',
         'Repository "repo1" is missing attribute "path"',
     }
+
+
+@pytest.mark.parametrize(
+    'upload_path, is_valid', [
+        (None, True),
+        ('', True),
+        ('remote', False),
+        ('remote:', True),
+        ('remote:a', True),
+        ('remote:/a', True),
+        ('remote:a/b', True),
+    ])
+def test_validate_config_rclone_upload_path(config_data: dict, upload_path: str, is_valid: bool):
+    test_config = config_data.copy()
+    first_repo = list(test_config['repositories']['local'].keys())[0]
+    test_config['repositories']['local'][first_repo]['rclone_upload_path'] = upload_path
+
+    if is_valid:
+        validate_config(test_config)
+
+    else:
+        with pytest.raises(ConfigValidationError) as ex:
+            validate_config(test_config)
+        assert ex.value.errors == {
+            f'Invalid rclone_upload_path "{upload_path}". Path must contain a single colon',
+        }

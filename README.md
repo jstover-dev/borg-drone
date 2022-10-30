@@ -186,4 +186,4 @@ archives:
 ```
 
 Data will first be backed up to a borg repository located at `/backup/usb`,
-then the borg repository itself will be uploaded to the remote pacth `b2:backups/archive1/`
+then the borg repository itself will be uploaded to the remote path `b2:backups/archive1/`

@@ -95,7 +95,7 @@
                 },
                 "rclone_upload_path": {
                     "type": "string",
-                    "pattern": "^[^:]*:[^:]*$",
+                    "pattern": "^[^:]*:[^:]*$"
                 }
             },
             "required": [
