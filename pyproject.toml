@@ -3,7 +3,7 @@ requires = ["flit_core >=3.7,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "borg_drone"
+name = "borg-drone"
 readme = "README.md"
 requires-python = ">=3.6"
 dependencies = [
