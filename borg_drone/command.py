@@ -61,6 +61,7 @@ def key_export_command(config_file: Path, archive_names: ArchiveNames) -> None:
     Export the repo keyfile that was produced by the 'init' command.
     These key and password files can be reimported by using 'key-import'
     """
+    passwords = {}
     exported = []
     for target in get_targets(config_file, archive_names):
         try:
@@ -77,9 +78,15 @@ def key_export_command(config_file: Path, archive_names: ArchiveNames) -> None:
             logger.error(ex)
             continue
 
+        passwords[f'{target.name}:{target.repo.name}'] = target.password_file.read_text()
         exported += [target.keyfile, target.paper_keyfile]
 
     logger.info(f'{len(exported)} Encryption keys exported')
+    if passwords:
+        logger.warning('Repository passwords. You should back up these values to a safe location:')
+        maxlen = max(map(len, passwords))
+        for repo, pw in passwords.items():
+            logger.info(f'\t{repo:{maxlen}} : {pw}')
     if exported:
         logger.warning('MAKE SURE TO BACKUP THESE FILES, AND THEN REMOVE FROM THE LOCAL FILESYSTEM!')
         logger.warning(f'You can do this by running: `borg-drone key-cleanup`')
