@@ -181,7 +181,7 @@ class Archive(ConfigItem):
 
     @property
     def borg_repository_path(self) -> str:
-        if isinstance(self.repo, RemoteRepository):
+        if self.repo.is_remote:
             url = urlparse(self.repo.url)
             return url._replace(path=os.path.join(url.path, self.name)).geturl()
         else:
@@ -194,7 +194,7 @@ class Archive(ConfigItem):
             BORG_RELOCATED_REPO_ACCESS_IS_OK='yes',
             BORG_REPO=self.borg_repository_path,
         )
-        if isinstance(self.repo, RemoteRepository):
+        if self.repo.is_remote:
             borg_rsh = 'ssh -o VisualHostKey=no'
             if self.repo.ssh_key:
                 borg_rsh += f' -i {self.repo.ssh_key}'

@@ -39,7 +39,7 @@ def init_command(config_file: Path, archive_names: ArchiveNames) -> None:
         target.create_password_file()
 
         # Check / add server host key
-        if isinstance(target.repo, RemoteRepository):
+        if target.repo.is_remote:
             try:
                 update_ssh_known_hosts(target.repo.hostname)
             except CalledProcessError as ex:
@@ -148,7 +148,7 @@ def create_command(config_file: Path, archive_names: ArchiveNames) -> None:
         if target.repo.compact:
             run_cmd(['borg', 'compact', '--cleanup-commits', '::'], env=target.environment)
 
-        if isinstance(target.repo, LocalRepository) and target.repo.rclone_upload_path:
+        if not target.repo.is_remote and target.repo.rclone_upload_path:
             remote_name, remote_base_path = target.repo.rclone_upload_path.split(':', 1)
             remote_path = PurePosixPath(remote_base_path) / target.name
             upload_path = f'{remote_name}:{remote_path}'
