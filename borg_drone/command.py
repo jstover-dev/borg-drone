@@ -169,7 +169,7 @@ def create_command(config_file: Path, sync_target: TargetTuple) -> None:
                 logger.warning('Unable to locate rclone executable')
             else:
                 remote_name, remote_base_path = target.repo.rclone_upload_path.split(':', 1)
-                remote_path = PurePosixPath(remote_base_path) / target.name
+                remote_path = PurePosixPath(remote_base_path) / target.archive.name
                 upload_path = f'{remote_name}:{remote_path}'
                 run_cmd(['rclone', 'sync', '-v', '--stats-one-line', target.borg_repository_path, upload_path])
 
