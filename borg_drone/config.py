@@ -73,7 +73,7 @@ class ConfigItem:
     def from_dict(cls: Type[T], obj: dict[str, Any]) -> T:
         return cls(**{k: v for k, v in obj.items() if k in [x.name for x in fields(cls)]})
 
-    def as_dict(self: T) -> dict[str, Any]:
+    def to_dict(self: T) -> dict[str, Any]:
         return {f.name: getattr(self, f.name) for f in fields(self)}
 
 
@@ -92,14 +92,6 @@ class LocalRepository(ConfigItem):
     @property
     def url(self) -> str:
         return self.path
-
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, LocalRepository):
-            return False
-        for attr in ('name', 'encryption', 'path', 'prune', 'compact'):
-            if getattr(self, attr) != getattr(other, attr):
-                return False
-        return True
 
 
 @dataclass(frozen=True)
@@ -129,20 +121,10 @@ class RemoteRepository(ConfigItem):
                 path = '/.' + path
         return f'ssh://{username}{self.hostname}:{self.port}{path}'
 
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, RemoteRepository):
-            return False
-        for attr in ('name', 'encryption', 'hostname', 'path', 'username', 'port', 'ssh_key', 'prune', 'compact'):
-            if getattr(self, attr) != getattr(other, attr):
-                return False
-        return True
 
-
-# TODO: Split this into Archive (config item) and Target (for behaviour)
 @dataclass(frozen=True)
 class Archive(ConfigItem):
     name: str
-    repo: Union[LocalRepository, RemoteRepository]
     paths: list[str]
     exclude: list[str] = field(default_factory=list)
     one_file_system: bool = False
@@ -150,10 +132,19 @@ class Archive(ConfigItem):
 
     required_attributes = {'repositories', 'paths'}
 
+
+@dataclass
+class Target:
+    archive: Archive
+    repo: Union[LocalRepository, RemoteRepository]
+
+    @property
+    def name(self):
+        return f'{self.archive.name}:{self.repo.name}'
+
     @property
     def config_path(self) -> Path:
-        name = f'{self.name}_{self.repo.name}'
-        path = CONFIG_PATH / name
+        path = CONFIG_PATH / self.name.replace(':', '_')
         path.mkdir(exist_ok=True)
         return path
 
@@ -169,12 +160,6 @@ class Archive(ConfigItem):
     def paper_keyfile(self) -> Path:
         return self.config_path / 'keyfile.txt'
 
-    def create_password_file(self, contents: Optional[str] = None) -> None:
-        passwd = self.config_path / 'passwd'
-        if not passwd.exists():
-            passwd.write_text(contents or token_hex(32))
-            logger.info(f'Created passphrase file: {passwd}')
-
     @property
     def initialised(self) -> bool:
         return (self.config_path / '.initialised').exists()
@@ -183,9 +168,9 @@ class Archive(ConfigItem):
     def borg_repository_path(self) -> str:
         if self.repo.is_remote:
             url = urlparse(self.repo.url)
-            return url._replace(path=os.path.join(url.path, self.name)).geturl()
+            return url._replace(path=os.path.join(url.path, self.archive.name)).geturl()
         else:
-            return str(PurePosixPath(self.repo.url) / self.name)
+            return str(PurePosixPath(self.repo.url) / self.archive.name)
 
     @property
     def environment(self) -> dict[str, str]:
@@ -201,8 +186,17 @@ class Archive(ConfigItem):
             env.update(BORG_RSH=borg_rsh)
         return env
 
+    def create_password_file(self, contents: Optional[str] = None) -> None:
+        passwd = self.config_path / 'passwd'
+        if not passwd.exists():
+            passwd.write_text(contents or token_hex(32))
+            logger.info(f'Created passphrase file: {passwd}')
+
     def to_dict(self) -> dict[str, Any]:
-        return {k: v.__dict__ if isinstance(v, ConfigItem) else v for k, v in self.__dict__.items()}
+        return {
+            'archive': self.archive.to_dict(),
+            'repo': self.repo.to_dict()
+        }
 
 
 def validate_config(data: dict[str, Any]) -> None:
@@ -275,7 +269,7 @@ def validate_config(data: dict[str, Any]) -> None:
         raise err
 
 
-def parse_config(file: Path) -> list[Archive]:
+def parse_config(file: Path) -> list[Target]:
     yaml_data = yaml.safe_load(file.read_text())
     validate_config(yaml_data)
 
@@ -291,7 +285,7 @@ def parse_config(file: Path) -> list[Archive]:
         remote_repository: RemoteRepository = RemoteRepository.from_dict({'name': name, **repo})
         repositories[name] = remote_repository
 
-    archives = []
+    targets = []
     for name, archive_data in yaml_data['archives'].items():
 
         # Read repositories name and override values from archive
@@ -301,17 +295,21 @@ def parse_config(file: Path) -> list[Archive]:
         else:
             repository_list = {k: v if v is not None else {} for k, v in repository_list.items()}
 
+        target_repos = []
         for archive_repository, overrides in repository_list.items():
             if 'prune' in overrides:
                 overrides['prune'] = PruneOptions.from_yaml(overrides['prune'])
             repo = repositories[archive_repository]
-            repo = type(repo).from_dict(dict(repo.as_dict(), **overrides))
-            archives.append(Archive.from_dict({'name': name, 'repo': repo, **archive_data}))
+            repo = type(repo).from_dict(dict(repo.to_dict(), **overrides))
+            target_repos.append(repo)
 
-    return archives
+        archive = Archive.from_dict({'name': name, **archive_data})
+        targets += [Target(archive=archive, repo=repo) for repo in target_repos]
+
+    return targets
 
 
-def read_config(file: Path) -> list[Archive]:
+def read_config(file: Path) -> list[Target]:
     try:
         return parse_config(file)
     except FileNotFoundError:

@@ -8,7 +8,6 @@ from borg_drone.config import RemoteRepository, LocalRepository
 
 def test_targets_command(
     config_file: Path,
-    archive_paths: dict[str, list[str]],
     local_repository_usb: LocalRepository,
     remote_repository_offsite: RemoteRepository,
     remote_repository_offsite_with_overrides: RemoteRepository,
@@ -17,15 +16,24 @@ def test_targets_command(
     command.targets_command(config_file)
     out, err = capfd.readouterr()
 
-    assert out == '\n'.join(
-        [
-            "[archive1]",
-            f"\tpaths   = {', '.join(archive_paths['archive1'])}",
-            "\texclude = ['**/venv', '**/.direnv', '**/node_modules']",
-            f"\trepos  = {local_repository_usb}, {remote_repository_offsite}",
-            "[archive2]",
-            f"\tpaths   = {', '.join(archive_paths['archive2'])}",
-            "\texclude = []",
-            f"\trepos  = {remote_repository_offsite_with_overrides}, {local_repository_usb}",
-            "",
-        ])
+    assert out == '\n'.join((
+        'archive1:usb',
+        '\tpaths   │ ~/.ssh, ~/.gnupg, ~/src, ~/bin, ~/Desktop, ~/Documents, ~/Pictures',
+        '\texclude │ **/venv, **/.direnv, **/node_modules',
+        '\trepo    │ usb [/path/to/usb]',
+        '',
+        'archive1:offsite',
+        '\tpaths   │ ~/.ssh, ~/.gnupg, ~/src, ~/bin, ~/Desktop, ~/Documents, ~/Pictures',
+        '\texclude │ **/venv, **/.direnv, **/node_modules',
+        '\trepo    │ offsite [offsite.example.com]',
+        '',
+        'archive2:offsite',
+        '\tpaths   │ /data',
+        '\trepo    │ offsite [offsite.example.com]',
+        '',
+        'archive2:usb',
+        '\tpaths   │ /data',
+        '\trepo    │ usb [/path/to/usb]',
+        '\n',
+    ))
+    return

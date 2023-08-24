@@ -1,15 +1,14 @@
 import json
 import os
+import subprocess
 from getpass import getpass
-from itertools import groupby
 from pathlib import Path, PurePosixPath
 from logging import getLogger
 from subprocess import CalledProcessError
 from typing import Optional
 
-from .config import LocalRepository, RemoteRepository
-from .util import run_cmd, get_targets, execute, update_ssh_known_hosts, CustomJSONEncoder
-from .types import OutputFormat, TargetTuple, ArchiveNames
+from .util import run_cmd, get_targets, execute, update_ssh_known_hosts, CustomJSONEncoder, require_borg
+from .types import OutputFormat, TargetTuple
 
 logger = getLogger(__package__)
 
@@ -26,14 +25,15 @@ def generate_config_command(config_file: Path, overwrite: bool = False) -> None:
     logger.info(f'Edit this file to configure the application')
 
 
-def init_command(config_file: Path, archive_names: ArchiveNames) -> None:
+@require_borg
+def init_command(config_file: Path, sync_target: TargetTuple) -> None:
     """
     Wrapper for calling 'borg init' on all targets for the provided archives
     Initialises all configured borg repositories
     """
-    for target in get_targets(config_file, archive_names):
+    for target in get_targets(config_file, sync_target):
         if target.initialised:
-            logger.info(f'{target.repo.name}:{target.name}: Already initialised')
+            logger.info(f'{target.name} already initialised')
             continue
 
         target.create_password_file()
@@ -52,18 +52,19 @@ def init_command(config_file: Path, archive_names: ArchiveNames) -> None:
         except CalledProcessError as ex:
             logger.error(ex)
         else:
-            logger.info(f'{target.repo.name}:{target.name} initialised')
+            logger.info(f'{target.name} initialised')
             (target.config_path / '.initialised').touch(exist_ok=True)
 
 
-def key_export_command(config_file: Path, archive_names: ArchiveNames) -> None:
+@require_borg
+def key_export_command(config_file: Path, sync_target: TargetTuple) -> None:
     """
     Export the repo keyfile that was produced by the 'init' command.
-    These key and password files can be reimported by using 'key-import'
+    These key and password files can be imported by using 'key-import'
     """
     passwords = {}
     exported = []
-    for target in get_targets(config_file, archive_names):
+    for target in get_targets(config_file, sync_target):
         try:
             lines = list(execute(['borg', 'key', 'export', '--paper'], env=target.environment))
         except CalledProcessError as ex:
@@ -89,13 +90,14 @@ def key_export_command(config_file: Path, archive_names: ArchiveNames) -> None:
             logger.info(f'\t{repo:{maxlen}} : {pw}')
     if exported:
         logger.warning('MAKE SURE TO BACKUP THESE FILES, AND THEN REMOVE FROM THE LOCAL FILESYSTEM!')
-        logger.warning(f'You can do this by running: `borg-drone key-cleanup`')
+        logger.warning(f'You can delete these files by running: `borg-drone key-cleanup`')
         for f in exported:
             logger.info(f'\t{f}')
 
 
+@require_borg
 def key_import_command(
-        config_file: Path, repo_target: TargetTuple, keyfile: Optional[Path], password_file: Optional[Path]) -> None:
+        config_file: Path, sync_target: TargetTuple, keyfile: Optional[Path], password_file: Optional[Path]) -> None:
     """
     Import a key file and password into a already configured target.
     This is mostly useful after restoring a backup since it allows for continued use of the repository.
@@ -104,48 +106,52 @@ def key_import_command(
     """
     if keyfile is None:
         raise RuntimeError('keyfile must not be empty')
-    if repo_target is None:
+    if sync_target is None:
         raise RuntimeError('No target provided')
     if password_file is None:
         password = getpass('Enter password for existing archive: ')
     else:
         password = password_file.read_text()
-    repo, archive = repo_target
-    for target in get_targets(config_file, [archive]):
-        if target.repo.name == repo:
-            target.create_password_file(contents=password)
-            try:
-                run_cmd(['borg', 'key', 'import', '::', str(keyfile)], env=target.environment)
-            except CalledProcessError as ex:
-                logger.error(ex)
-            logger.info(f'Imported keys for {repo}:{archive} successfully')
+
+    for target in get_targets(config_file, sync_target):
+        target.create_password_file(contents=password)
+        try:
+            run_cmd(['borg', 'key', 'import', '::', str(keyfile)], env=target.environment)
+        except CalledProcessError as ex:
+            logger.error(ex)
+        logger.info(f'Imported keys for {target.name} successfully')
 
 
-def key_cleanup_command(config_file: Path, archive_names: ArchiveNames) -> None:
+def key_cleanup_command(config_file: Path) -> None:
     """
     Delete all unnecessary keys that were produced by 'key export' command
     These keys are not needed for proper function of borg-drone
     """
-    for target in get_targets(config_file, archive_names):
+    found = 0
+    for target in get_targets(config_file):
         for keyfile in (target.keyfile, target.paper_keyfile):
             if keyfile.exists():
                 keyfile.unlink()
+                found += 1
                 logger.info(f'Removed {keyfile}')
+    logger.info(f'{found} files removed')
 
 
-def create_command(config_file: Path, archive_names: ArchiveNames) -> None:
+@require_borg
+def create_command(config_file: Path, sync_target: TargetTuple) -> None:
     """
     Wrapper for calling 'borg create' on all targets for the provided archives
     Also calls 'borg prune' and 'borg compact' if specified by the configuration
     """
-    for target in get_targets(config_file, archive_names):
-        argv = ['borg', 'create', '--stats', '--compression', target.compression]
-        if target.one_file_system:
+    for target in get_targets(config_file, sync_target):
+        archive = target.archive
+        argv = ['borg', 'create', '--stats', '--compression', archive.compression]
+        if archive.one_file_system:
             argv.append('--one-file-system')
-        for pattern in target.exclude:
+        for pattern in archive.exclude:
             argv += ['--exclude', pattern]
         argv.append('::{now}')
-        argv += map(os.path.expanduser, target.paths)
+        argv += map(os.path.expanduser, archive.paths)
         run_cmd(argv, env=target.environment)
 
         if target.repo.prune:
@@ -156,28 +162,35 @@ def create_command(config_file: Path, archive_names: ArchiveNames) -> None:
             run_cmd(['borg', 'compact', '--cleanup-commits', '::'], env=target.environment)
 
         if not target.repo.is_remote and target.repo.rclone_upload_path:
-            remote_name, remote_base_path = target.repo.rclone_upload_path.split(':', 1)
-            remote_path = PurePosixPath(remote_base_path) / target.name
-            upload_path = f'{remote_name}:{remote_path}'
-            run_cmd(['rclone', 'sync', '-v', '--stats-one-line', target.borg_repository_path, upload_path])
+            try:
+                subprocess.run(['rclone', '-V'])
+            except FileNotFoundError:
+                logger.warning('Unable to locate rclone executable')
+            else:
+                remote_name, remote_base_path = target.repo.rclone_upload_path.split(':', 1)
+                remote_path = PurePosixPath(remote_base_path) / target.name
+                upload_path = f'{remote_name}:{remote_path}'
+                run_cmd(['rclone', 'sync', '-v', '--stats-one-line', target.borg_repository_path, upload_path])
 
 
-def info_command(config_file: Path, archives: ArchiveNames) -> None:
+@require_borg
+def info_command(config_file: Path, target: TargetTuple) -> None:
     """
     Wrapper for calling 'borg info' on all targets for the provided archives
     """
-    for target in get_targets(config_file, archives):
+    for t in get_targets(config_file, target):
         try:
-            run_cmd(['borg', 'info'], env=target.environment)
+            run_cmd(['borg', 'info'], env=t.environment)
         except CalledProcessError as ex:
             logger.error(ex)
 
 
-def list_command(config_file: Path, archive_names: ArchiveNames) -> None:
+@require_borg
+def list_command(config_file: Path, target: TargetTuple) -> None:
     """
     Wrapper for calling 'borg list' on all targets for the provided archives
     """
-    for target in get_targets(config_file, archive_names):
+    for target in get_targets(config_file, target):
         try:
             run_cmd(['borg', 'list'], env=target.environment)
         except CalledProcessError as ex:
@@ -189,21 +202,24 @@ def targets_command(config_file: Path, output: OutputFormat = OutputFormat.text)
     Print all all targets to stdout.
     Output format can be either 'json', 'yaml', or 'text'
     """
-    all_targets = get_targets(config_file)
+    targets = get_targets(config_file, ('', ''))
 
     if output == OutputFormat.json:
-        print(json.dumps([x.to_dict() for x in all_targets], indent=2, cls=CustomJSONEncoder))
-        return
+        print(json.dumps([x.to_dict() for x in targets], indent=2, cls=CustomJSONEncoder))
 
     elif output == OutputFormat.yaml:
         print(config_file.read_text())
+
+    elif output == OutputFormat.text:
+        for target in targets:
+            print(f'{target.name}')
+            print(f'\tpaths   │ {", ".join(target.archive.paths)}')
+            if target.archive.exclude:
+                print(f'\texclude │ {", ".join(target.archive.exclude)}')
+            print(f'\trepo    │ {target.repo.name} [{target.repo.url}]')
+            print()
         return
 
-    for name, grouped_targets in groupby(all_targets, key=lambda x: x.name):
-        targets = list(grouped_targets)
-        if not targets:
-            continue
-        print(f'[{name}]')
-        print(f'\tpaths   = {", ".join(targets[0].paths)}')
-        print(f'\texclude = {targets[0].exclude}')
-        print(f'\trepos  = {", ".join([str(target.repo) for target in targets])}')
+    elif output == OutputFormat.python:
+        for target in targets:
+            print(target)

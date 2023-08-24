@@ -7,7 +7,7 @@ from pathlib import Path
 from . import __version__, command
 from .util import setup_logging
 from .config import ConfigValidationError, DEFAULT_CONFIG_FILE
-from .types import OutputFormat, TargetTuple, ArchiveNames, TargetTupleList
+from .types import OutputFormat, TargetTuple
 
 logger = logging.getLogger(__package__)
 
@@ -17,125 +17,137 @@ CommandFunction = Callable[[Path, list[str]], None]
 @dataclass
 class ProgramArguments:
     command: str
+    debug: bool
     config_file: Path
-    target: TargetTuple = None
-    targets: TargetTupleList = None
-    archives: ArchiveNames = None
+    force: bool = False
+    format: OutputFormat = OutputFormat.text
     keyfile: Optional[Path] = None
     password_file: Optional[Path] = None
-    format: OutputFormat = OutputFormat.text
-    force: bool = False
+    TARGET: TargetTuple = None
 
 
-@dataclass
-class Command:
-    name: str
+# Map subcommands to a command function
+command_functions: dict[str, Callable[[ProgramArguments], Any]] = {
+
+    'version': lambda args: print(__version__),
+    'generate-config': lambda args: command.generate_config_command(
+        args.config_file,
+        overwrite=args.force,
+    ),
+    'targets': lambda args: command.targets_command(
+        args.config_file,
+        output=OutputFormat(args.format),
+    ),
+    'init': lambda args: command.init_command(
+        args.config_file,
+        args.TARGET,
+    ),
+    'info': lambda args: command.info_command(
+        args.config_file,
+        args.TARGET,
+    ),
+    'list': lambda args: command.list_command(
+        args.config_file,
+        args.TARGET,
+    ),
+    'create': lambda args: command.create_command(
+        args.config_file,
+        args.TARGET,
+    ),
+    'key-export': lambda args: command.key_export_command(
+        args.config_file,
+        args.TARGET,
+    ),
+    'key-cleanup': lambda args: command.key_cleanup_command(
+        args.config_file,
+    ),
+    'key-import': lambda args: command.key_import_command(
+        args.config_file,
+        args.TARGET,
+        args.keyfile,
+        args.password_file,
+    )
+}
+
+HELP_TEXT = {
+    'TARGET': 'Select targets using "[ARCHIVE]:[REPO]" syntax',
+    'KEYFILE': 'Select borg repo key file',
+    'PASSWORD_FILE': 'Select borg password file',
+}
 
 
-# pseudo-type for a string with format archive:repo
-def archive_target(text: str) -> TargetTuple:
-    target = tuple(text.split(':', 1))
-    if len(target) != 2:
-        raise ValueError(f'String "{text}" does not match format "REPO:ARCHIVE"')
-    return target[0], target[1]
+def parse_args() -> ProgramArguments:
 
-
-def parse_args() -> Callable[[], Any]:
+    # pseudo-type for a string with format archive:repo
+    def archive_target(text: str) -> TargetTuple:
+        target = tuple(text.split(':', 1))
+        if len(target) != 2:
+            raise ValueError(f'String "{text}" does not match format "ARCHIVE:[REPO]"')
+        return target[0].strip(), target[1].strip()
 
     parser = ArgumentParser()
     parser.add_argument(
-        "--config-file",
-        "-c",
+        '--config-file',
+        '-c',
         default=DEFAULT_CONFIG_FILE,
         type=Path,
-        help="Path to configuration file",
-        metavar="FILE",
+        help='Path to configuration file',
+        metavar='FILE',
     )
 
+    parser.add_argument('--debug', '-d', action='store_true', help='Enable debug logging')
+
     command_subparser = parser.add_subparsers(dest='command', required=True)
+
+    # version
     command_subparser.add_parser('version')
 
-    generate_config_subparser = command_subparser.add_parser('generate-config')
-    generate_config_subparser.add_argument('--force', '-f', action='store_true', default=False)
+    # generate-config
+    genconf_subparser = command_subparser.add_parser('generate-config', help='Generate a default configuration file')
+    genconf_subparser.add_argument('--force', '-f', action='store_true', default=False)
 
+    # targets
     targets_subparser = command_subparser.add_parser('targets')
     targets_subparser.add_argument('--format', '-f', choices=OutputFormat.values(), default='text')
 
-    init_subparser = command_subparser.add_parser('init')
-    init_subparser.add_argument('archives', nargs='*')
+    # init
+    init_subparser = command_subparser.add_parser('init', help='Run "borg init" on specified targets')
+    init_subparser.add_argument('TARGET', type=archive_target, help=HELP_TEXT['TARGET'])
 
-    info_subparser = command_subparser.add_parser('info')
-    info_subparser.add_argument('archives', nargs='*')
+    # info
+    info_subparser = command_subparser.add_parser('info', help='Run "borg info" on specified targets')
+    info_subparser.add_argument('TARGET', type=archive_target, help=HELP_TEXT['TARGET'])
 
-    list_subparser = command_subparser.add_parser('list')
-    list_subparser.add_argument('archives', nargs='*')
+    # list
+    list_subparser = command_subparser.add_parser('list', help='Run "borg list" on specified targets')
+    list_subparser.add_argument('TARGET', type=archive_target, help=HELP_TEXT['TARGET'])
 
-    create_subparser = command_subparser.add_parser('create')
-    create_subparser.add_argument('archives', nargs='*')
+    # create
+    create_subparser = command_subparser.add_parser('create', help='Create a new backup on specified targets')
+    create_subparser.add_argument('TARGET', type=archive_target, help=HELP_TEXT['TARGET'])
 
-    key_export_subparser = command_subparser.add_parser('key-export')
-    key_export_subparser.add_argument('archives', nargs='*')
+    # key-export
+    key_export_subparser = command_subparser.add_parser('key-export', help='Export and display secrets')
+    key_export_subparser.add_argument('TARGET', type=archive_target, help=HELP_TEXT['TARGET'])
 
-    key_cleanup_subparser = command_subparser.add_parser('key-cleanup')
-    key_cleanup_subparser.add_argument('archives', nargs='*')
+    # key-cleanup
+    command_subparser.add_parser('key-cleanup', help='Remove unnecessary secrets from disk')
 
-    key_import_subparser = command_subparser.add_parser('key-import')
-    key_import_subparser.add_argument('target', type=archive_target)
-    key_import_subparser.add_argument('--keyfile', type=Path, required=True)
-    key_import_subparser.add_argument('--password-file', type=Path, default=None)
+    # key-import
+    key_import_subparser = command_subparser.add_parser('key-import', help='Import existing borg keyfile and password')
+    key_import_subparser.add_argument('TARGET', type=archive_target, help=HELP_TEXT['TARGET'])
+    key_import_subparser.add_argument('--keyfile', type=Path, required=True, help=HELP_TEXT['KEYFILE'])
+    key_import_subparser.add_argument('--password-file', type=Path, default=None, help=HELP_TEXT['PASSWORD_FILE'])
 
-    command_functions: dict[str, Callable[[ProgramArguments], Any]] = {
-        'version': lambda args: print(__version__),
-        'generate-config': lambda args: command.generate_config_command(
-            args.config_file,
-            overwrite=args.force,
-        ),
-        'targets': lambda args: command.targets_command(
-            args.config_file,
-            output=OutputFormat(args.format),
-        ),
-        'init': lambda args: command.init_command(
-            args.config_file,
-            args.archives,
-        ),
-        'info': lambda args: command.info_command(
-            args.config_file,
-            args.archives,
-        ),
-        'list': lambda args: command.list_command(
-            args.config_file,
-            args.archives,
-        ),
-        'create': lambda args: command.create_command(
-            args.config_file,
-            args.archives,
-        ),
-        'key-export': lambda args: command.key_export_command(
-            args.config_file,
-            args.archives,
-        ),
-        'key-cleanup': lambda args: command.key_cleanup_command(
-            args.config_file,
-            args.archives,
-        ),
-        'key-import': lambda args: command.key_import_command(
-            args.config_file,
-            args.target,
-            args.keyfile,
-            args.password_file,
-        )
-    }
-
-    program_args = ProgramArguments(**parser.parse_args().__dict__)
-
-    return lambda: command_functions[program_args.command](program_args)
+    return ProgramArguments(**parser.parse_args().__dict__)
 
 
 def main() -> None:
-    setup_logging()
-    run_command = parse_args()
+    args = parse_args()
+    setup_logging(debug=args.debug)
+    logger.debug(args)
     try:
-        run_command()
+        command_functions[args.command](args)
     except ConfigValidationError as ex:
         logger.error(f'Error(s) encountered while reading configuration file: {ex}')
         ex.log_errors()

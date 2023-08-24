@@ -1,3 +1,4 @@
+import subprocess
 from json import JSONEncoder
 from pathlib import Path
 from subprocess import Popen, PIPE, STDOUT, DEVNULL, CalledProcessError
@@ -5,8 +6,8 @@ from typing import Optional, Any
 from dataclasses import asdict
 import logging
 
-from .config import ConfigValidationError, read_config, Archive, PruneOptions
-from .types import StringGenerator, EnvironmentMap
+from .config import ConfigValidationError, read_config, Archive, PruneOptions, Target
+from .types import StringGenerator, EnvironmentMap, TargetTuple
 
 logger = logging.getLogger(__package__)
 
@@ -46,10 +47,11 @@ class ColourLogFormatter(logging.Formatter):
         return self.formatters[record.levelno].format(record)
 
 
-def setup_logging() -> None:
-    logger.setLevel(logging.DEBUG)
+def setup_logging(debug: bool = False) -> None:
+    level = logging.DEBUG if debug else logging.INFO
+    logger.setLevel(level)
     ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
+    ch.setLevel(level)
     ch.setFormatter(ColourLogFormatter())
     logger.addHandler(ch)
 
@@ -82,14 +84,28 @@ def run_cmd(cmd: list[str], env: EnvironmentMap = None, stderr: int = STDOUT) ->
         output.append(line)
     return output
 
+#
+# def get_targets1(config_file: Path, names: Optional[list[str]] = None) -> list[Target]:
+#     if names is None:
+#         names = []
+#     read_all = not names or 'all' in names
+#     targets = [target for target in read_config(config_file) if read_all or target.archive.name in names]
+#     if not targets:
+#         raise ConfigValidationError([f'No targets found matching names: {names}'])
+#     return targets
 
-def get_targets(config_file: Path, names: Optional[list[str]] = None) -> list[Archive]:
-    if names is None:
-        names = []
-    read_all = not names or 'all' in names
-    targets = [target for target in read_config(config_file) if read_all or target.name in names]
+
+def get_targets(config_file: Path, sync_target: TargetTuple = None):
+    targets = read_config(config_file)
+    if sync_target is None:
+        return targets
+    archive, repo = sync_target
+    if archive:
+        targets = [t for t in targets if t.archive.name == archive]
+    if repo:
+        targets = [t for t in targets if t.repo.name == repo]
     if not targets:
-        raise ConfigValidationError([f'No targets found matching names: {names}'])
+        raise ConfigValidationError([f'No targets found matching {":".join(sync_target)}'])
     return targets
 
 
@@ -115,3 +131,18 @@ class CustomJSONEncoder(JSONEncoder):
         if isinstance(o, PruneOptions):
             return [{k: v} for k, v in asdict(o).items() if v is not None]
         return super().default(o)
+
+
+def require_borg(fn):
+    """
+    Decorator to ensure borg is installed before the function is called
+    """
+    def wrapped(*args, **kwargs):
+        try:
+            subprocess.run(['borg', '-V'], capture_output=True)
+        except FileNotFoundError:
+            logger.error('Unable to locate borg executable')
+            return
+        return fn(*args, **kwargs)
+
+    return wrapped

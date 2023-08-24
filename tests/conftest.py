@@ -4,7 +4,7 @@ from pathlib import Path
 import yaml
 import pytest
 
-from borg_drone.config import Archive, LocalRepository, RemoteRepository, PruneOptions
+from borg_drone.config import Archive, LocalRepository, RemoteRepository, PruneOptions, Target
 
 
 @pytest.fixture
@@ -51,62 +51,29 @@ def remote_repository_offsite_with_overrides(remote_repository_offsite):
 
 
 @pytest.fixture
-def archive_paths() -> dict[str, list[str]]:
-    return {
-        'archive1': [
-            '~/.ssh',
-            '~/.gnupg',
-            '~/src',
-            '~/bin',
-            '~/Desktop',
-            '~/Documents',
-            '~/Pictures',
-        ],
-        'archive2': [
-            '/data',
-        ]
-    }
+def archive1():
+    return Archive(
+        name='archive1',
+        paths=['~/.ssh', '~/.gnupg', '~/src', '~/bin', '~/Desktop', '~/Documents', '~/Pictures'],
+        exclude=['**/venv', '**/.direnv', '**/node_modules'],
+        one_file_system=True,
+        compression='lz4'
+    )
 
 
 @pytest.fixture
-def archive1_targets(local_repository_usb, remote_repository_offsite, archive_paths):
-    return [
-        Archive(
-            name='archive1',
-            repo=repo,
-            paths=archive_paths['archive1'],
-            exclude=[
-                '**/venv',
-                '**/.direnv',
-                '**/node_modules',
-            ],
-            one_file_system=True,
-            compression='lz4',
-        ) for repo in (local_repository_usb, remote_repository_offsite)
-    ]
+def archive2():
+    return Archive(
+        name='archive2',
+        paths=['/data'],
+        exclude=[],
+        one_file_system=False,
+        compression='lz4',
+    )
 
 
 @pytest.fixture
-def archive2_targets(local_repository_usb, remote_repository_offsite, archive_paths):
-    return [
-        Archive(
-            name='archive2',
-            repo=repo,
-            paths=archive_paths['archive2'],
-            exclude=[],
-            one_file_system=False,
-            compression='lz4',
-        ) for repo in (local_repository_usb, remote_repository_offsite)
-    ]
-
-
-@pytest.fixture
-def mock_targets(archive1_targets, archive2_targets):
-    return [*archive1_targets, *archive2_targets]
-
-
-@pytest.fixture
-def config_data() -> dict:
+def config_data(archive1, archive2) -> dict:
     return {
         'repositories': {
             'local': {
@@ -156,17 +123,9 @@ def config_data() -> dict:
         'archives': {
             'archive1': {
                 'repositories': ['usb', 'offsite'],
-                'paths': [
-                    '~/.ssh',
-                    '~/.gnupg',
-                    '~/src',
-                    '~/bin',
-                    '~/Desktop',
-                    '~/Documents',
-                    '~/Pictures',
-                ],
-                'exclude': ['**/venv', '**/.direnv', '**/node_modules'],
-                'one_file_system': True
+                'paths': archive1.paths,
+                'exclude': archive1.exclude,
+                'one_file_system': archive1.one_file_system
             },
             'archive2': {
                 'repositories': {
@@ -183,11 +142,32 @@ def config_data() -> dict:
                         ]
                     },
                 },
-                'paths': ['/data']
+                'paths': archive2.paths
             }
         }
     }
 
+
+@pytest.fixture
+def expected_targets(archive1, archive2, local_repository_usb, remote_repository_offsite, remote_repository_offsite_with_overrides):
+    return [
+        Target(
+            archive=archive1,
+            repo=local_repository_usb,
+        ),
+        Target(
+            archive=archive1,
+            repo=remote_repository_offsite,
+        ),
+        Target(
+            archive=archive2,
+            repo=remote_repository_offsite_with_overrides,
+        ),
+        Target(
+            archive=archive2,
+            repo=local_repository_usb,
+        ),
+    ]
 
 @pytest.fixture
 def config_file(config_data: dict, tmp_path: Path):
@@ -195,3 +175,5 @@ def config_file(config_data: dict, tmp_path: Path):
     with file.open('w') as f:
         yaml.dump(config_data, f)
     yield file
+
+

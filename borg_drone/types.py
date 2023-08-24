@@ -6,14 +6,13 @@ EnvironmentMap = Optional[dict[str, str]]
 StringGenerator = Generator[str, None, None]
 
 TargetTuple = Optional[tuple[str, str]]
-TargetTupleList = Optional[list[tuple[str, str]]]
-ArchiveNames = Optional[list[str]]
 
 
 class OutputFormat(Enum):
     json = 'json'
     yaml = 'yaml'
     text = 'text'
+    python = 'python'
 
     @classmethod
     def values(cls) -> list[str]:
