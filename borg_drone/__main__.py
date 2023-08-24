@@ -28,7 +28,6 @@ class ProgramArguments:
 
 # Map subcommands to a command function
 command_functions: dict[str, Callable[[ProgramArguments], Any]] = {
-
     'version': lambda args: print(__version__),
     'generate-config': lambda args: command.generate_config_command(
         args.config_file,

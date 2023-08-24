@@ -7,6 +7,7 @@ from logging import getLogger
 from subprocess import CalledProcessError
 from typing import Optional
 
+from .config import RemoteRepository, LocalRepository
 from .util import run_cmd, get_targets, execute, update_ssh_known_hosts, CustomJSONEncoder, require_borg
 from .types import OutputFormat, TargetTuple
 
@@ -39,7 +40,7 @@ def init_command(config_file: Path, sync_target: TargetTuple) -> None:
         target.create_password_file()
 
         # Check / add server host key
-        if target.repo.is_remote:
+        if isinstance(target.repo, RemoteRepository):
             try:
                 update_ssh_known_hosts(target.repo.hostname)
             except CalledProcessError as ex:
@@ -161,9 +162,9 @@ def create_command(config_file: Path, sync_target: TargetTuple) -> None:
         if target.repo.compact:
             run_cmd(['borg', 'compact', '--cleanup-commits', '::'], env=target.environment)
 
-        if not target.repo.is_remote and target.repo.rclone_upload_path:
+        if isinstance(target.repo, LocalRepository) and target.repo.rclone_upload_path:
             try:
-                subprocess.run(['rclone', '-V'])
+                subprocess.run(['rclone', '-V'], capture_output=True)
             except FileNotFoundError:
                 logger.warning('Unable to locate rclone executable')
             else:
@@ -190,9 +191,9 @@ def list_command(config_file: Path, target: TargetTuple) -> None:
     """
     Wrapper for calling 'borg list' on all targets for the provided archives
     """
-    for target in get_targets(config_file, target):
+    for t in get_targets(config_file, target):
         try:
-            run_cmd(['borg', 'list'], env=target.environment)
+            run_cmd(['borg', 'list'], env=t.environment)
         except CalledProcessError as ex:
             logger.error(ex)
 

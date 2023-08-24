@@ -57,7 +57,7 @@ def archive1():
         paths=['~/.ssh', '~/.gnupg', '~/src', '~/bin', '~/Desktop', '~/Documents', '~/Pictures'],
         exclude=['**/venv', '**/.direnv', '**/node_modules'],
         one_file_system=True,
-        compression='lz4'
+        compression='lz4',
     )
 
 
@@ -149,7 +149,8 @@ def config_data(archive1, archive2) -> dict:
 
 
 @pytest.fixture
-def expected_targets(archive1, archive2, local_repository_usb, remote_repository_offsite, remote_repository_offsite_with_overrides):
+def expected_targets(
+        archive1, archive2, local_repository_usb, remote_repository_offsite, remote_repository_offsite_with_overrides):
     return [
         Target(
             archive=archive1,
@@ -169,11 +170,10 @@ def expected_targets(archive1, archive2, local_repository_usb, remote_repository
         ),
     ]
 
+
 @pytest.fixture
 def config_file(config_data: dict, tmp_path: Path):
     file = tmp_path / 'config.yml'
     with file.open('w') as f:
         yaml.dump(config_data, f)
     yield file
-
-

@@ -4,13 +4,19 @@ from itertools import chain
 from logging import getLogger
 from pathlib import Path, PurePosixPath
 from secrets import token_hex
-from typing import ClassVar, Optional, Union, Type, Any, TypeVar
+from typing import ClassVar, Optional, Union, Any, TypeVar, TYPE_CHECKING
 from urllib.parse import urlparse
 from collections.abc import Iterable
 
 import yaml
 
+if TYPE_CHECKING:
+    from _typeshed import DataclassInstance
+
 logger = getLogger(__package__)
+
+T = TypeVar('T')
+DataclassT = TypeVar("DataclassT", bound="DataclassInstance")
 
 
 def xdg_config_path(name: str, create: bool = False) -> Path:
@@ -38,9 +44,6 @@ class ConfigValidationError(Exception):
             logger.error(f'> {error}')
 
 
-T = TypeVar('T')
-
-
 @dataclass(frozen=True)
 class PruneOptions:
     keep_hourly: Optional[int] = None
@@ -50,7 +53,7 @@ class PruneOptions:
     keep_yearly: Optional[int] = None
 
     @classmethod
-    def from_yaml(cls: Type[T], data: list[dict[str, int]]) -> T:
+    def from_yaml(cls: type[T], data: list[dict[str, int]]) -> T:
         return cls(**{k: v for option in data for k, v in option.items()})
 
     @property
@@ -70,10 +73,10 @@ class ConfigItem:
     required_attributes: ClassVar[set[str]]
 
     @classmethod
-    def from_dict(cls: Type[T], obj: dict[str, Any]) -> T:
+    def from_dict(cls: type[DataclassT], obj: dict[str, Any]) -> DataclassT:
         return cls(**{k: v for k, v in obj.items() if k in [x.name for x in fields(cls)]})
 
-    def to_dict(self: T) -> dict[str, Any]:
+    def to_dict(self: DataclassT) -> dict[str, Any]:
         return {f.name: getattr(self, f.name) for f in fields(self)}
 
 
@@ -86,8 +89,8 @@ class LocalRepository(ConfigItem):
     compact: bool = False
     rclone_upload_path: str = ''
 
-    is_remote = False
     required_attributes = {'encryption', 'path'}
+    is_remote = False
 
     @property
     def url(self) -> str:
@@ -106,7 +109,6 @@ class RemoteRepository(ConfigItem):
     prune: PruneOptions = field(default_factory=PruneOptions)
     compact: bool = False
 
-    _required_attributes_ = {'name', 'encryption', 'hostname'}
     required_attributes = {'encryption', 'hostname'}
     is_remote = True
 
@@ -139,7 +141,7 @@ class Target:
     repo: Union[LocalRepository, RemoteRepository]
 
     @property
-    def name(self):
+    def name(self) -> str:
         return f'{self.archive.name}:{self.repo.name}'
 
     @property
@@ -181,8 +183,10 @@ class Target:
         )
         if self.repo.is_remote:
             borg_rsh = 'ssh -o VisualHostKey=no'
-            if self.repo.ssh_key:
-                borg_rsh += f' -i {self.repo.ssh_key}'
+
+            ssh_key = getattr(self.repo, 'ssh_key', None)
+            if ssh_key:
+                borg_rsh += f' -i {ssh_key}'
             env.update(BORG_RSH=borg_rsh)
         return env
 
@@ -193,10 +197,7 @@ class Target:
             logger.info(f'Created passphrase file: {passwd}')
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            'archive': self.archive.to_dict(),
-            'repo': self.repo.to_dict()
-        }
+        return {'archive': self.archive.to_dict(), 'repo': self.repo.to_dict()}
 
 
 def validate_config(data: dict[str, Any]) -> None:

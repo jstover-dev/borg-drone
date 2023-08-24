@@ -16,24 +16,25 @@ def test_targets_command(
     command.targets_command(config_file)
     out, err = capfd.readouterr()
 
-    assert out == '\n'.join((
-        'archive1:usb',
-        '\tpaths   │ ~/.ssh, ~/.gnupg, ~/src, ~/bin, ~/Desktop, ~/Documents, ~/Pictures',
-        '\texclude │ **/venv, **/.direnv, **/node_modules',
-        '\trepo    │ usb [/path/to/usb]',
-        '',
-        'archive1:offsite',
-        '\tpaths   │ ~/.ssh, ~/.gnupg, ~/src, ~/bin, ~/Desktop, ~/Documents, ~/Pictures',
-        '\texclude │ **/venv, **/.direnv, **/node_modules',
-        '\trepo    │ offsite [offsite.example.com]',
-        '',
-        'archive2:offsite',
-        '\tpaths   │ /data',
-        '\trepo    │ offsite [offsite.example.com]',
-        '',
-        'archive2:usb',
-        '\tpaths   │ /data',
-        '\trepo    │ usb [/path/to/usb]',
-        '\n',
-    ))
+    assert out == '\n'.join(
+        (
+            'archive1:usb',
+            '\tpaths   │ ~/.ssh, ~/.gnupg, ~/src, ~/bin, ~/Desktop, ~/Documents, ~/Pictures',
+            '\texclude │ **/venv, **/.direnv, **/node_modules',
+            '\trepo    │ usb [/path/to/usb]',
+            '',
+            'archive1:offsite',
+            '\tpaths   │ ~/.ssh, ~/.gnupg, ~/src, ~/bin, ~/Desktop, ~/Documents, ~/Pictures',
+            '\texclude │ **/venv, **/.direnv, **/node_modules',
+            '\trepo    │ offsite [offsite.example.com]',
+            '',
+            'archive2:offsite',
+            '\tpaths   │ /data',
+            '\trepo    │ offsite [offsite.example.com]',
+            '',
+            'archive2:usb',
+            '\tpaths   │ /data',
+            '\trepo    │ usb [/path/to/usb]',
+            '\n',
+        ))
     return

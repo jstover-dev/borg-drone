@@ -2,11 +2,13 @@ import subprocess
 from json import JSONEncoder
 from pathlib import Path
 from subprocess import Popen, PIPE, STDOUT, DEVNULL, CalledProcessError
-from typing import Optional, Any
+from typing import Any, Callable, TypeVar, Optional
 from dataclasses import asdict
 import logging
 
-from .config import ConfigValidationError, read_config, Archive, PruneOptions, Target
+from typing_extensions import ParamSpec
+
+from .config import ConfigValidationError, read_config, PruneOptions, Target
 from .types import StringGenerator, EnvironmentMap, TargetTuple
 
 logger = logging.getLogger(__package__)
@@ -84,18 +86,8 @@ def run_cmd(cmd: list[str], env: EnvironmentMap = None, stderr: int = STDOUT) ->
         output.append(line)
     return output
 
-#
-# def get_targets1(config_file: Path, names: Optional[list[str]] = None) -> list[Target]:
-#     if names is None:
-#         names = []
-#     read_all = not names or 'all' in names
-#     targets = [target for target in read_config(config_file) if read_all or target.archive.name in names]
-#     if not targets:
-#         raise ConfigValidationError([f'No targets found matching names: {names}'])
-#     return targets
 
-
-def get_targets(config_file: Path, sync_target: TargetTuple = None):
+def get_targets(config_file: Path, sync_target: TargetTuple = None) -> list[Target]:
     targets = read_config(config_file)
     if sync_target is None:
         return targets
@@ -133,16 +125,21 @@ class CustomJSONEncoder(JSONEncoder):
         return super().default(o)
 
 
-def require_borg(fn):
+T = TypeVar('T')
+P = ParamSpec('P')
+
+
+def require_borg(fn: Callable[P, T]) -> Callable[P, Optional[T]]:
     """
     Decorator to ensure borg is installed before the function is called
     """
-    def wrapped(*args, **kwargs):
+
+    def wrapped(*args: P.args, **kwargs: P.kwargs) -> Optional[T]:
         try:
             subprocess.run(['borg', '-V'], capture_output=True)
         except FileNotFoundError:
             logger.error('Unable to locate borg executable')
-            return
+            return None
         return fn(*args, **kwargs)
 
     return wrapped
