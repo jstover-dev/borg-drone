@@ -2,18 +2,25 @@
 
 [![builds.sr.ht status](https://builds.sr.ht/~jmstover/borg-drone/commits/master.svg)](https://builds.sr.ht/~jmstover/borg-drone/commits/master?)
 
-(yet another) borg wrapper.
+(yet another) borg wrapper. Configure multiple borg repositories and run commands on some or all of them.
 
-This application is a helper to run multiple borg backups with a single command.
+## Features
+- YAML configuration of target repositories
+- Easily run borg commands against multiple repositories
+- Automatically synchronise a local borg repo with an offsite backup (requires rclone)
+
+## Limitations
+- Only local filesystem and remote SSH repositories are supported
 
 ## Dependencies
 
 - borg
+- rclone (optional)
 - Python 3.5+
 
 ## Installation
 
-Install via pip (WIP)
+Install via pip
 ```shell
 pip install borg-drone
 ```
@@ -34,13 +41,14 @@ borg-drone generate-config
 
 Edit the configuration file to suit the local backup needs
 ```yaml
+# ~/.config/borg-drone/config.yml
+#
 # borg-drone configuration consists of two main sections: 'repositories' and 'archives'
 #
-# Repositories are local or remote (SSH) targets where the borg repository will be created.
+# Repositories are either "local" or "remote" (SSH) targets where the borg repository will be created.
 # Many repositories can be defined in this section, but only those referenced by an archive will be used.
 #
-# Archives are local to the machine running borg-drone and define the folders to be backed up and excluded.
-# All archives defined here will be used by default.
+# Archives are define the folders to be backed up or excluded, and must reference at least one Repository.
 
 
 repositories:
@@ -49,7 +57,7 @@ repositories:
   local:
 
     # Local backup location A
-    local-example:
+    local-example-a:
       path: /backups/example-a
       encryption: keyfile-blake2
       prune:
@@ -60,7 +68,7 @@ repositories:
       compact: false
 
     # Local backup location B which will be uploaded to an rclone remote
-    local-example-2:
+    local-example-b:
       path: /backups/example-b
       encryption: keyfile
       compact: true
@@ -109,55 +117,92 @@ archives:
       - "**/venv"
       - "**/node_modules"
 
-    # Enable the --one-file-system borg options
+    # Enable the --one-file-system borg option
     one_file_system: true
+  
+
+  # Backup /etc folder to /backup/example-a/local-conf
+  local-conf:
+    repositories:
+      - local-example-a
+    paths:
+      - /etc
+
 ```
 
 List all configured targets
 ```shell
-borg-drone targets
+$ borg-drone targets
+
+this-machine-1:local-example-a
+        paths   │ ~/.ssh, ~/.gnupg, ~/Desktop, ~/Documents, ~/Pictures
+        exclude │ **/venv, **/node_modules
+        repo    │ local-example-a [/backups/example-a]
+
+this-machine-1:remote-example
+        paths   │ ~/.ssh, ~/.gnupg, ~/Desktop, ~/Documents, ~/Pictures
+        exclude │ **/venv, **/node_modules
+        repo    │ remote-example [ssh://backup@backups.example.com:22/.]
+
+local-conf:local-example-a
+        paths   │ /etc
+        repo    │ local-example-a [/backups/example-a]
+```
+
+The syntax for selecting targets is `[ARCHIVE]:[REPO]` _e.g._
+```shell
+# Run `borg info` on a single target
+$ borg-drone info local-conf:local-example-a
+
+# Run `borg info` on all repositories stored in local-example-a
+$ borg-drone info :local-example-a
+
+# Run `borg info` on all repositories for "this-machine-1" archive
+$ borg-drone info this-machine-1:
+
+# Run `borg info` on all targets
+$ borg-drone info :
+```
+
+# Commands
+
+Initialise repositories
+```shell
+$ borg-drone init [ARCHIVE]:[REPO]
+```
+
+Export the keys and password files for backup outside of the repository:
+
+```shell
+# These will be required in order to restore the backup!
+$ borg-drone key-export [ARCHIVE]:[REPO]
+
+# Clean up the exported key files so they do not hang around on your machine
+$ borg-drone key-cleanup
 ```
 
 
-Initialise repositories (This calls `borg init` on all repositories)
+Create a new backup (_i.e._ call `borg create` on all repositories)
 ```shell
-borg-drone init
-```
-
-Export the keys and password files for backup outside of the repository.
-**These will be required in order to restore the backup!**
-```shell
-borg-drone key-export
+$ borg-drone create [ARCHIVE]:[REPO]
 ```
 
 
-Clean up the exported key files so they do not hang around on your machine
+View repository info. (_i.e._ call `borg info` on all repositories)
 ```shell
-borg-drone key-cleanup
+$ borg-drone info [ARCHIVE]:[REPO]
 ```
 
-
-Create a new backup (This calls `borg create` on all repositories)
+List repository files. (_i.e._ call `borg list` on all repositories)
 ```shell
-borg-drone create
-```
-
-
-View repository info. (This calls `borg info` on all repositories)
-```shell
-borg-drone info
-```
-
-List repository files. (This calls `borg list` on all repositories)
-```shell
-borg-drone list
+$ borg-drone list [ARCHIVE]:[REPO]
 ```
 
 
 Import an existing key and password into a target
 ```shell
 # Import key and password for archive 'this-machine' on repository 'local-example-a'
-borg-drone key-import this-machine:local-example-a --keyfile /path/to/keyfile --password-file /path/to/password-file
+$ borg-drone key-import this-machine:local-example-a --keyfile /path/to/keyfile --password-file /path/to/password-file
 ```
 
 ## rclone Uploads
