@@ -3,6 +3,7 @@ image: debian/stable
 packages:
   - python3
   - python3-pip
+  - python3-venv
   - make
 
 environment:
@@ -13,9 +14,10 @@ tasks:
       python3 -V
       pip -V
       export PATH="$HOME/.local/bin:$PATH"
-      pip install -q -U pip
+      python3 -m venv venv
 
   - test: |
+      source venv/bin/activate
       python3 -V
       pip -V
       cd ${REPO_NAME}
