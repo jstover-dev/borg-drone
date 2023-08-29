@@ -145,6 +145,7 @@ def create_command(config_file: Path, sync_target: TargetTuple) -> None:
     Also calls 'borg prune' and 'borg compact' if specified by the configuration
     """
     for target in get_targets(config_file, sync_target):
+        logger.info(f'----- {target.name} -----')
         archive = target.archive
         argv = ['borg', 'create', '--stats', '--compression', archive.compression]
         if archive.one_file_system:
@@ -180,6 +181,7 @@ def info_command(config_file: Path, target: TargetTuple) -> None:
     Wrapper for calling 'borg info' on all targets for the provided archives
     """
     for t in get_targets(config_file, target):
+        logger.info(f'----- {t.name} -----')
         try:
             run_cmd(['borg', 'info'], env=t.environment)
         except CalledProcessError as ex:
@@ -192,6 +194,7 @@ def list_command(config_file: Path, target: TargetTuple) -> None:
     Wrapper for calling 'borg list' on all targets for the provided archives
     """
     for t in get_targets(config_file, target):
+        logger.info(f'----- {t.name} -----')
         try:
             run_cmd(['borg', 'list'], env=t.environment)
         except CalledProcessError as ex:

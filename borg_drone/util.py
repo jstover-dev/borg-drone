@@ -75,11 +75,10 @@ def execute(cmd: list[str], env: EnvironmentMap = None, stderr: int = STDOUT) ->
         return_code = proc.wait()
         if return_code:
             raise CalledProcessError(return_code, ' '.join(cmd))
-    logger.info(f'{Colour.GREEN}Command executed successfully{Colour.RESET}')
+    logger.info(f'{Colour.GREEN}Command executed successfully{Colour.RESET}\n')
 
 
 def run_cmd(cmd: list[str], env: EnvironmentMap = None, stderr: int = STDOUT) -> list[str]:
-    logger.info('')
     output = []
     for line in execute(cmd, env, stderr):
         logger.info(line)
