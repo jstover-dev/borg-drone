@@ -4,6 +4,8 @@
 
 (yet another) borg wrapper. Configure multiple borg repositories and run commands on some or all of them.
 
+Use at your own peril
+
 ## Features
 - YAML configuration of target repositories
 - Easily run borg commands against multiple repositories
